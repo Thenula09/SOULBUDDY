@@ -1,4 +1,6 @@
-This is a new [**React Native**](https://reactnative.dev) project, bootstrapped using [`@react-native-community/cli`](https://github.com/react-native-community/cli).
+# SOULBUDDY Mobile App
+
+A React Native mobile application for mental health support with AI chat and mood tracking features.
 
 # Getting Started
 
