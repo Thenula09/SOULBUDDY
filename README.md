@@ -4,121 +4,143 @@ SoulBuddy is a comprehensive mental health and mood tracking application that co
 
 ## 📦 Project Structure
 
-This repository contains both the mobile application and backend services organized as sub-folders:
+This monorepo contains both the mobile application and backend microservices:
 
-### 🔗 Quick Links
-- **[📱 SOULBUDDYMobile](./SOULBUDDYMobile)** - React Native mobile application
-- **[🔧 Backend Services](./backend-services)** - Microservices architecture
-  - [User Service](./backend-services/user-service)
-  - [Chat AI Service](./backend-services/chat-ai-service)
-  - [Mood Analytics](./backend-services/mood-analytics)
-  - [API Gateway](./backend-services/api-gateway)
+### 🔗 Quick Links to Services
+- **[📱 Mobile Application](./SOULBUDDYMobile)** - React Native app (iOS & Android)
+- **[🔧 Backend Services](./backend-services)** - Python FastAPI microservices
+  - **[👤 User Service](./backend-services/user-service)** - Authentication & user management (Port: 8004)
+  - **[💬 Chat AI Service](./backend-services/chat-ai-service)** - AI chat & emotion detection (Port: 8002)
+  - **[📊 Mood Analytics](./backend-services/mood-analytics)** - Mood tracking & analytics (Port: 8003)
+  - **[🚪 API Gateway](./backend-services/api-gateway)** - API routing & security
+- **[📖 Documentation](./docs)** - Project documentation
+- **[📋 Repository Structure](./REPOSITORY_STRUCTURE.md)** - Detailed structure guide
 
 ```
 SOULBUDDY/
 ├── SOULBUDDYMobile/          # React Native mobile app (iOS & Android)
-├── backend-services/          # Backend microservices
-│   ├── user-service/         # User authentication & profiles
-│   ├── chat-ai-service/      # AI chat & emotion detection
-│   ├── mood-analytics/       # Mood tracking & analytics
+├── backend-services/          # Backend microservices (FastAPI + PostgreSQL)
+│   ├── user-service/         # User authentication & profiles (Port: 8004)
+│   ├── chat-ai-service/      # AI chat & emotion detection (Port: 8002)
+│   ├── mood-analytics/       # Mood tracking & analytics (Port: 8003)
 │   └── api-gateway/          # API routing & security
-├── README.md
-├── CONTRIBUTING.md
-└── LICENSE
+├── docs/                      # Documentation
+├── README.md                  # This file
+├── CONTRIBUTING.md            # Contribution guidelines
+└── REPOSITORY_STRUCTURE.md    # Detailed structure
 ```
 
-## 🚀 Features
+## ✨ Key Features
 
-> **Note**: Make sure you have completed the [Set Up Your Environment](https://reactnative.dev/docs/set-up-your-environment) guide before proceeding.
+### Mobile App
+- 🔐 User authentication (Login, Register, Password Recovery)
+- 😊 Mood tracking with 5-minute intervals
+- 💬 AI-powered chat for emotional support
+- 📈 Mood analytics and visualizations
+- 👤 User profile management
+- 🎨 Beautiful UI with SVG animations
 
-## Step 1: Start Metro
+### Backend Services
+- 🔒 Secure authentication with JWT
+- 🤖 AI integration (OpenAI/Gemini)
+- 📊 Advanced mood analytics
+- 🗄️ PostgreSQL database (Supabase)
+- 🔄 Microservices architecture
 
-First, you will need to run **Metro**, the JavaScript build tool for React Native.
+---
 
-To start the Metro dev server, run the following command from the root of your React Native project:
+## 🚀 Getting Started
 
-```sh
-# Using npm
+### Prerequisites
+- Node.js 18+ (for mobile app)
+- Python 3.9+ (for backend services)
+- PostgreSQL (Supabase account)
+- React Native development environment
+- iOS: Xcode & CocoaPods
+- Android: Android Studio
+
+### 📱 Mobile Application Setup
+
+See the [Mobile App README](./SOULBUDDYMobile/README.md) for detailed setup instructions.
+
+Quick start:
+```bash
+cd SOULBUDDYMobile
+npm install
 npm start
-
-# OR using Yarn
-yarn start
+npm run android  # or npm run ios
 ```
 
-## Step 2: Build and run your app
+### 🔧 Backend Services Setup
 
-With Metro running, open a new terminal window/pane from the root of your React Native project, and use one of the following commands to build and run your Android or iOS app:
+Each service has its own setup. See individual service READMEs:
+- [User Service Setup](./backend-services/user-service/README.md)
+- [Chat AI Service Setup](./backend-services/chat-ai-service/README.md)
+- [Mood Analytics Setup](./backend-services/mood-analytics/README.md)
+- [API Gateway Setup](./backend-services/api-gateway/README.md)
 
-### Android
-
-```sh
-# Using npm
-npm run android
-
-# OR using Yarn
-yarn android
+Quick start (example for user-service):
+```bash
+cd backend-services/user-service
+pip install -r requirements.txt
+python main.py
 ```
 
-### iOS
+---
 
-For iOS, remember to install CocoaPods dependencies (this only needs to be run on first clone or after updating native deps).
+## 🏗️ Architecture
 
-The first time you create a new project, run the Ruby bundler to install CocoaPods itself:
-
-```sh
-bundle install
+```
+┌─────────────────┐
+│  Mobile App     │
+│  (React Native) │
+└────────┬────────┘
+         │
+         ↓
+┌─────────────────┐
+│  API Gateway    │
+└────────┬────────┘
+         │
+    ┌────┼────┬────────┐
+    ↓    ↓    ↓        ↓
+┌────┐ ┌───┐ ┌────┐ ┌────┐
+│User│ │Chat│ │Mood│ │...│
+│Svc │ │Svc│ │Svc │ │   │
+└────┘ └───┘ └────┘ └────┘
+    │    │     │       │
+    └────┴─────┴───────┘
+            ↓
+    ┌──────────────┐
+    │  PostgreSQL  │
+    │  (Supabase)  │
+    └──────────────┘
 ```
 
-Then, and every time you update your native dependencies, run:
+---
 
-```sh
-bundle exec pod install
-```
+## 🤝 Contributing
 
-For more information, please visit [CocoaPods Getting Started guide](https://guides.cocoapods.org/using/getting-started.html).
+Please read [CONTRIBUTING.md](./CONTRIBUTING.md) for details on our code of conduct and the process for submitting pull requests.
 
-```sh
-# Using npm
-npm run ios
+---
 
-# OR using Yarn
-yarn ios
-```
+## 📄 License
 
-If everything is set up correctly, you should see your new app running in the Android Emulator, iOS Simulator, or your connected device.
+This project is licensed under the MIT License - see the [LICENSE](./LICENSE) file for details.
 
-This is one way to run your app — you can also build it directly from Android Studio or Xcode.
+---
 
-## Step 3: Modify your app
+## 📞 Support
 
-Now that you have successfully run the app, let's make changes!
+For questions or issues, please create an issue in this repository.
 
-Open `App.tsx` in your text editor of choice and make some changes. When you save, your app will automatically update and reflect these changes — this is powered by [Fast Refresh](https://reactnative.dev/docs/fast-refresh).
+---
 
-When you want to forcefully reload, for example to reset the state of your app, you can perform a full reload:
+## 🔗 Additional Resources
 
-- **Android**: Press the <kbd>R</kbd> key twice or select **"Reload"** from the **Dev Menu**, accessed via <kbd>Ctrl</kbd> + <kbd>M</kbd> (Windows/Linux) or <kbd>Cmd ⌘</kbd> + <kbd>M</kbd> (macOS).
-- **iOS**: Press <kbd>R</kbd> in iOS Simulator.
+- [Repository Structure Guide](./REPOSITORY_STRUCTURE.md)
+- [Documentation](./docs)
 
-## Congratulations! :tada:
+---
 
-You've successfully run and modified your React Native App. :partying_face:
-
-### Now what?
-
-- If you want to add this new React Native code to an existing application, check out the [Integration guide](https://reactnative.dev/docs/integration-with-existing-apps).
-- If you're curious to learn more about React Native, check out the [docs](https://reactnative.dev/docs/getting-started).
-
-# Troubleshooting
-
-If you're having issues getting the above steps to work, see the [Troubleshooting](https://reactnative.dev/docs/troubleshooting) page.
-
-# Learn More
-
-To learn more about React Native, take a look at the following resources:
-
-- [React Native Website](https://reactnative.dev) - learn more about React Native.
-- [Getting Started](https://reactnative.dev/docs/environment-setup) - an **overview** of React Native and how setup your environment.
-- [Learn the Basics](https://reactnative.dev/docs/getting-started) - a **guided tour** of the React Native **basics**.
-- [Blog](https://reactnative.dev/blog) - read the latest official React Native **Blog** posts.
-- [`@facebook/react-native`](https://github.com/facebook/react-native) - the Open Source; GitHub **repository** for React Native.
+**Made with ❤️ by the SoulBuddy Team**
