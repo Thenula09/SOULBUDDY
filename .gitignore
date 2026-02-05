@@ -73,3 +73,36 @@ yarn-error.log
 !.yarn/releases
 !.yarn/sdks
 !.yarn/versions
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+env/
+venv/
+*.egg-info/
+
+# Environment variables
+.env
+.env.local
+**/.env
+
+# Root level duplicate files (only SOULBUDDYMobile/, backend-services/, docs/ should exist)
+/App.tsx
+/app.json
+/babel.config.js
+/BUNDLE_OPTIMIZATION.md
+/Gemfile
+/index.js
+/jest.config.js
+/metro.config.js
+/package.json
+/tsconfig.json
+/README_NEW.md
+/20617-38809-chat-bot.riv
+/__tests__/
+/android/
+/ios/
+/src/
