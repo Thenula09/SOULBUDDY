@@ -1,8 +1,33 @@
-# SOULBUDDY Mobile App
+# 🌟 SoulBuddy - AI-Powered Mental Health & Mood Tracking Platform
 
-A React Native mobile application for mental health support with AI chat and mood tracking features.
+SoulBuddy is a comprehensive mental health and mood tracking application that combines AI-powered chat assistance with detailed mood analytics to help users better understand and improve their mental well-being.
 
-# Getting Started
+## 📦 Project Structure
+
+This repository contains both the mobile application and backend services organized as sub-folders:
+
+### 🔗 Quick Links
+- **[📱 SOULBUDDYMobile](./SOULBUDDYMobile)** - React Native mobile application
+- **[🔧 Backend Services](./backend-services)** - Microservices architecture
+  - [User Service](./backend-services/user-service)
+  - [Chat AI Service](./backend-services/chat-ai-service)
+  - [Mood Analytics](./backend-services/mood-analytics)
+  - [API Gateway](./backend-services/api-gateway)
+
+```
+SOULBUDDY/
+├── SOULBUDDYMobile/          # React Native mobile app (iOS & Android)
+├── backend-services/          # Backend microservices
+│   ├── user-service/         # User authentication & profiles
+│   ├── chat-ai-service/      # AI chat & emotion detection
+│   ├── mood-analytics/       # Mood tracking & analytics
+│   └── api-gateway/          # API routing & security
+├── README.md
+├── CONTRIBUTING.md
+└── LICENSE
+```
+
+## 🚀 Features
 
 > **Note**: Make sure you have completed the [Set Up Your Environment](https://reactnative.dev/docs/set-up-your-environment) guide before proceeding.
 
