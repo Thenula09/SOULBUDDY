@@ -6,9 +6,13 @@ import {
   TouchableOpacity,
   Alert,
   ScrollView,
+  Dimensions,
 } from 'react-native';
 import { AuthScreenProps } from '../../../types/navigation';
 import { registerStyles } from './registerStyles';
+import RegisterSvg from './register.svg';
+
+const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 
 const Register: React.FC<AuthScreenProps> = ({ navigation }) => {
   const [name, setName] = useState('');
@@ -51,53 +55,114 @@ const Register: React.FC<AuthScreenProps> = ({ navigation }) => {
   };
 
   return (
-    <ScrollView contentContainerStyle={registerStyles.scrollContainer}>
-      <View style={registerStyles.container}>
-        <Text style={registerStyles.title}>Create Account</Text>
-        <Text style={registerStyles.subtitle}>Join SoulBuddy today</Text>
-
-        <TextInput
-          style={registerStyles.input}
-          placeholder="Full Name"
-          value={name}
-          onChangeText={setName}
-          autoCapitalize="words"
+    <View style={registerStyles.wrapper}>
+      <View style={registerStyles.svgBackground}>
+        <RegisterSvg 
+          width="100%" 
+          height="100%"
+          preserveAspectRatio="xMidYMid meet"
         />
-
-        <TextInput
-          style={registerStyles.input}
-          placeholder="Email"
-          value={email}
-          onChangeText={setEmail}
-          keyboardType="email-address"
-          autoCapitalize="none"
-        />
-
-        <TextInput
-          style={registerStyles.input}
-          placeholder="Password"
-          value={password}
-          onChangeText={setPassword}
-          secureTextEntry
-        />
-
-        <TextInput
-          style={registerStyles.input}
-          placeholder="Confirm Password"
-          value={confirmPassword}
-          onChangeText={setConfirmPassword}
-          secureTextEntry
-        />
-
-        <TouchableOpacity style={registerStyles.button} onPress={handleRegister}>
-          <Text style={registerStyles.buttonText}>Register</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity onPress={() => navigation.navigate('Login')}>
-          <Text style={registerStyles.linkText}>Already have an account? Login</Text>
-        </TouchableOpacity>
       </View>
-    </ScrollView>
+      <ScrollView 
+        contentContainerStyle={registerStyles.scrollContainer}
+        keyboardShouldPersistTaps="handled"
+      >
+        <View style={registerStyles.container}>
+        <View style={registerStyles.authCard}>
+          <Text style={registerStyles.cardTitle}>Sign Up</Text>
+
+          {/* Body */}
+          <View style={registerStyles.authBody}>
+          <View style={registerStyles.fieldGroup}>
+            <Text style={registerStyles.fieldLabel}>Full Name</Text>
+            <View style={registerStyles.inputWrapper}>
+              <View style={registerStyles.iconContainer}>
+                <Text style={registerStyles.iconText}>👤</Text>
+              </View>
+              <TextInput
+                style={registerStyles.input}
+                placeholder="Wasim Bari"
+                placeholderTextColor="#c4c4c4"
+                value={name}
+                onChangeText={setName}
+                autoCapitalize="words"
+              />
+            </View>
+          </View>
+
+          <View style={registerStyles.fieldGroup}>
+            <Text style={registerStyles.fieldLabel}>E-mail</Text>
+            <View style={registerStyles.inputWrapper}>
+              <View style={registerStyles.iconContainer}>
+                <Text style={registerStyles.iconText}>📧</Text>
+              </View>
+              <TextInput
+                style={registerStyles.input}
+                placeholder="Hello@dream.com"
+                placeholderTextColor="#c4c4c4"
+                value={email}
+                onChangeText={setEmail}
+                keyboardType="email-address"
+                autoCapitalize="none"
+              />
+            </View>
+          </View>
+
+          <View style={registerStyles.fieldGroup}>
+            <Text style={registerStyles.fieldLabel}>Password</Text>
+            <View style={registerStyles.inputWrapper}>
+              <View style={registerStyles.iconContainer}>
+                <Text style={registerStyles.iconText}>🔒</Text>
+              </View>
+              <TextInput
+                style={registerStyles.input}
+                placeholder="********"
+                placeholderTextColor="#c4c4c4"
+                value={password}
+                onChangeText={setPassword}
+                secureTextEntry
+              />
+            </View>
+          </View>
+
+          <View style={registerStyles.fieldGroup}>
+            <Text style={registerStyles.fieldLabel}>Confirm Password</Text>
+            <View style={registerStyles.inputWrapper}>
+              <View style={registerStyles.iconContainer}>
+                <Text style={registerStyles.iconText}>🔒</Text>
+              </View>
+              <TextInput
+                style={registerStyles.input}
+                placeholder="********"
+                placeholderTextColor="#c4c4c4"
+                value={confirmPassword}
+                onChangeText={setConfirmPassword}
+                secureTextEntry
+              />
+            </View>
+          </View>
+
+          <TouchableOpacity style={registerStyles.primaryBtn} onPress={handleRegister}>
+            <Text style={registerStyles.primaryBtnText}>Sign Up</Text>
+          </TouchableOpacity>
+        </View>
+
+        {/* Footer */}
+        <View style={registerStyles.authFooter}>
+          <Text style={registerStyles.footerText}>
+            Already have an account?{' '}
+            <Text 
+              style={registerStyles.footerLink}
+              onPress={() => navigation.navigate('Login')}
+            >
+              Sign In
+            </Text>
+          </Text>
+        </View>
+        </View>
+        </View>
+      </ScrollView>
+    </View>
   );
 };
 

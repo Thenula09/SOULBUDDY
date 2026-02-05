@@ -5,10 +5,12 @@ import {
   TextInput,
   TouchableOpacity,
   Alert,
+  ScrollView,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { AuthScreenProps } from '../../../types/navigation';
 import { loginStyles } from './styles';
+import LoginBackground from './LoginBackground';
 
 const Login: React.FC<AuthScreenProps> = ({ navigation }) => {
   const [email, setEmail] = useState('');
@@ -31,9 +33,8 @@ const Login: React.FC<AuthScreenProps> = ({ navigation }) => {
         }),
       });
       const data = await response.json();
-      console.log('Login response data:', data); // Debug log
+      console.log('Login response data:', data);
       if (response.ok) {
-        // Store token and user info (use parsed `data` only once)
         try {
           await AsyncStorage.setItem('access_token', data.access_token);
           await AsyncStorage.setItem('user_id', data.user_id);
@@ -60,43 +61,89 @@ const Login: React.FC<AuthScreenProps> = ({ navigation }) => {
   };
 
   return (
-    <View style={loginStyles.container}>
-      <Text style={loginStyles.title}>Welcome Back</Text>
-      <Text style={loginStyles.subtitle}>Sign in to your account</Text>
+    <>
+      <LoginBackground />
+      <ScrollView 
+       
+      >
+        <View style={loginStyles.container}>
+        <View style={loginStyles.authHeader}>
+          <View style={loginStyles.authHeaderInner}>
+            <Text style={loginStyles.authTitle}>Sign In</Text>
+          </View>
+        </View>
 
-      <TextInput
-        style={loginStyles.input}
-        placeholder="Email"
-        value={email}
-        onChangeText={setEmail}
-        keyboardType="email-address"
-        autoCapitalize="none"
-      />
+        <View style={loginStyles.authCard}>
+          {/* Body */}
+          <View style={loginStyles.authBody}>
+            <View style={loginStyles.fieldGroup}>
+              <Text style={loginStyles.fieldLabel}>E-mail</Text>
+              <View style={loginStyles.inputWrapper}>
+                <View style={loginStyles.iconContainer}>
+                  <Text style={loginStyles.iconText}>📧</Text>
+                </View>
+                <TextInput
+                  style={loginStyles.input}
+                  placeholder="Hello@dream.com"
+                  placeholderTextColor="#c4c4c4"
+                  value={email}
+                  onChangeText={setEmail}
+                  keyboardType="email-address"
+                  autoCapitalize="none"
+                />
+              </View>
+            </View>
 
-      <TextInput
-        style={loginStyles.input}
-        placeholder="Password"
-        value={password}
-        onChangeText={setPassword}
-        secureTextEntry
-      />
+            <View style={loginStyles.fieldGroup}>
+              <Text style={loginStyles.fieldLabel}>Password</Text>
+              <View style={loginStyles.inputWrapper}>
+                <View style={loginStyles.iconContainer}>
+                  <Text style={loginStyles.iconText}>🔒</Text>
+                </View>
+                <TextInput
+                  style={loginStyles.input}
+                  placeholder="********"
+                  placeholderTextColor="#c4c4c4"
+                  value={password}
+                  onChangeText={setPassword}
+                  secureTextEntry
+                />
+              </View>
+            </View>
 
-      <TouchableOpacity style={loginStyles.button} onPress={handleLogin}>
-        <Text style={loginStyles.buttonText}>Login</Text>
-      </TouchableOpacity>
+            <TouchableOpacity onPress={() => navigation.navigate('ForgotPassword')}>
+              <Text style={loginStyles.forgotLink}>Forgot password?</Text>
+            </TouchableOpacity>
 
-      <TouchableOpacity onPress={() => navigation.navigate('ForgotPassword')}>
-        <Text style={[loginStyles.linkText, { marginTop: 8 }]}>Forgot password?</Text>
-      </TouchableOpacity>
+            <TouchableOpacity style={loginStyles.primaryBtn} onPress={handleLogin}>
+              <Text style={loginStyles.primaryBtnText}>Sign In</Text>
+            </TouchableOpacity>
+          </View>
 
-      <TouchableOpacity onPress={() => navigation.navigate('Register')}>
-        <Text style={loginStyles.linkText}>Don't have an account? Register</Text>
-      </TouchableOpacity>
+          {/* Footer */}
+          <View style={loginStyles.authFooter}>
+            <Text style={loginStyles.footerText}>
+              Don't have an account?{' '}
+              <Text 
+                style={loginStyles.footerLink}
+                onPress={() => navigation.navigate('Register')}
+              >
+                Sign Up
+              </Text>
+            </Text>
+          </View>
+        </View>
 
-      <TouchableOpacity onPress={() => navigation.navigate('AdminLogin') }>
-        <Text style={[loginStyles.linkText, { marginTop: 12 }]}>Admin login</Text>
-      </TouchableOpacity>
-    </View>
+        {/* Admin link */}
+        <TouchableOpacity 
+          onPress={() => navigation.navigate('AdminLogin')}
+          style={loginStyles.adminLinkContainer}
+        >
+          <Text style={loginStyles.adminLink}>Admin login</Text>
+        </TouchableOpacity>
+      </View>
+    </ScrollView>
+    </>
   );
 };
 
