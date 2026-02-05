@@ -5,6 +5,10 @@ export type RootStackParamList = {
   Onboarding2: undefined;
   Onboarding3: undefined;
   Login: undefined;
+  ForgotPassword: undefined;
+  ChooseRecovery: undefined;
+  MobileVerification: undefined;
+  OTPEntry: { phone?: string; code?: string } | undefined;
   Register: undefined;
   Main: undefined;
   Chat: undefined;

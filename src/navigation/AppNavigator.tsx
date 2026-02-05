@@ -7,6 +7,10 @@ import Onboarding2 from '../screens/onboarding/Onboarding2';
 import Onboarding3 from '../screens/onboarding/Onboarding3';
 import Login from '../screens/auth/Login/Login';
 import Register from '../screens/auth/Register/Register';
+import ForgotPassword from '../screens/auth/ForgotPassword/ForgotPassword';
+import ChooseRecovery from '../screens/auth/ChooseRecovery/ChooseRecovery';
+import MobileVerification from '../screens/auth/MobileVerification/MobileVerification';
+import OTPEntry from '../screens/auth/OTPEntry/OTPEntry';
 import AdminLogin from '../screens/admin/AdminLogin/AdminLogin';
 import AdminHome from '../screens/admin/AdminHome/AdminHome';
 import MainTabs from './MainTabs';
@@ -28,7 +32,6 @@ function AppNavigator() {
         initialRouteName="Onboarding1"
         screenOptions={{
           headerShown: false,
-          animationEnabled: true,
           cardStyleInterpolator: ({ current: { progress } }) => ({
             cardStyle: {
               opacity: progress,
@@ -40,6 +43,10 @@ function AppNavigator() {
         <Stack.Screen name="Onboarding2" component={Onboarding2} />
         <Stack.Screen name="Onboarding3" component={Onboarding3} />
         <Stack.Screen name="Login" component={Login} />
+        <Stack.Screen name="ForgotPassword" component={ForgotPassword} />
+        <Stack.Screen name="ChooseRecovery" component={ChooseRecovery} />
+        <Stack.Screen name="MobileVerification" component={MobileVerification} />
+        <Stack.Screen name="OTPEntry" component={OTPEntry} />
         <Stack.Screen name="Register" component={Register} />
         <Stack.Screen name="AdminLogin" component={AdminLogin} />
         <Stack.Screen name="AdminHome" component={AdminHome} options={{ headerShown: true, headerTitle: 'Admin' }} />
@@ -53,6 +60,7 @@ function AppNavigator() {
             headerStyle: { backgroundColor: '#007AFF' },
             headerTintColor: '#fff',
             headerTitleStyle: { fontWeight: 'bold' },
+            // eslint-disable-next-line react/no-unstable-nested-components
             headerLeft: () => <BackButton onPress={() => navigation.navigate('Main')} />,
           })}
         />
