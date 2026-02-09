@@ -1,6 +1,6 @@
-import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import {
-  View, Text, TextInput, TouchableOpacity, FlatList,
+  View, Text, TextInput, TouchableOpacity,
   KeyboardAvoidingView, Platform, StyleSheet, Alert, Image, PermissionsAndroid
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -22,7 +22,8 @@ const ChatScreen = () => {
   const [inputText, setInputText] = useState('');
   const [isTyping, setIsTyping] = useState(false);
   const [initialLoading, setInitialLoading] = useState(true);
-  const flatListRef = useRef<FlashList<Message>>(null);
+  // Use permissive any for the ref to avoid type conflicts with FlashList's exported value vs type
+  const flatListRef = useRef<any>(null);
 
   // Load persisted messages on mount (prevents automatic refresh when navigating back)
   useEffect(() => {
@@ -158,7 +159,7 @@ const ChatScreen = () => {
     } finally {
       setIsTyping(false); // Reply එක ආවම animation එක නවත්තන්න ✅
     }
-  }, [inputText]);
+  }, [inputText, detectEmotionFromText]);
 
   const requestCameraPermission = async () => {
     if (Platform.OS === 'android') {
@@ -342,6 +343,7 @@ const ChatScreen = () => {
             )}
           </View>
         )}
+        // @ts-ignore: estimatedItemSize exists at runtime but may not be present in the bundled types
         estimatedItemSize={80}
         style={styles.flatListStyle}
         contentContainerStyle={styles.flatListContent}

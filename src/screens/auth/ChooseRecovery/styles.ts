@@ -1,12 +1,27 @@
 import { StyleSheet } from 'react-native';
 
 export const chooseStyles = StyleSheet.create({
+  wrapper: {
+    flex: 1,
+    position: 'relative',
+  },
+  svgBackground: {
+    position: 'absolute',
+    top: -40, // raise SVG similar to Login/Forgot screens
+    left: 0,
+    right: 0,
+    bottom: 0,
+    width: '100%',
+    height: '100%',
+    zIndex: 0,
+  },
   container: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#f8f9fa',
+    backgroundColor: 'transparent',
     padding: 24,
+    zIndex: 1,
   },
   title: {
     fontSize: 26,
@@ -17,23 +32,24 @@ export const chooseStyles = StyleSheet.create({
   },
   option: {
     width: '100%',
-    backgroundColor: '#ffffff',
-    paddingVertical: 18,
-    paddingHorizontal: 20,
-    borderRadius: 12,
-    borderWidth: 1.5,
-    borderColor: '#e1e4e8',
+    borderRadius: 999,
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    marginTop: 16,
+    backgroundColor: '#2e0af4', // match Login primary button
+    borderWidth: 0,
+    alignItems: 'center',
     marginBottom: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 4,
-    elevation: 2,
+    shadowColor: '#c9d2f1',
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.12,
+    shadowRadius: 18,
+    elevation: 6,
   },
   optionText: {
-    fontSize: 17,
+    fontSize: 16,
     fontWeight: '600',
-    color: '#333333',
+    color: '#ffffff',
     textAlign: 'center',
   },
   linkText: {

@@ -1,10 +1,10 @@
 import React, { useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, Alert, ScrollView, Dimensions } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, Alert, ScrollView } from 'react-native';
 import { AuthScreenProps } from '../../../types/navigation';
 import { forgotStyles } from './styles';
 import ForgotPasswordSvg from './forgotpaword.svg';
 
-const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
+
 
 const ForgotPassword: React.FC<AuthScreenProps> = ({ navigation }) => {
   const [email, setEmail] = useState('');

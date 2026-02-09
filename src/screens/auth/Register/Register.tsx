@@ -6,13 +6,12 @@ import {
   TouchableOpacity,
   Alert,
   ScrollView,
-  Dimensions,
 } from 'react-native';
 import { AuthScreenProps } from '../../../types/navigation';
 import { registerStyles } from './registerStyles';
 import RegisterSvg from './register.svg';
 
-const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
+
 
 const Register: React.FC<AuthScreenProps> = ({ navigation }) => {
   const [name, setName] = useState('');

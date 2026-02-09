@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
 import { View, Text, TextInput, TouchableOpacity, Alert } from 'react-native';
-import { AuthScreenProps } from '../../../types/navigation';
 import { StyleSheet } from 'react-native';
 
 const otpStyles = StyleSheet.create({
@@ -19,7 +18,7 @@ interface OTPParams {
 }
 
 const OTPEntry = ({ navigation, route }: any) => {
-  const { phone, code } = (route?.params || {}) as OTPParams;
+  const { phone } = (route?.params || {}) as OTPParams;
   const [otp, setOtp] = useState('');
 
   const handleVerify = () => {

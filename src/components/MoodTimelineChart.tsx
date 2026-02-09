@@ -1,8 +1,6 @@
-import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, Dimensions, RefreshControl, TouchableOpacity } from 'react-native';
+import React, { useEffect, useState, useCallback } from 'react';
+import { View, Text, StyleSheet, ScrollView, RefreshControl, TouchableOpacity } from 'react-native';
 import { getMoodTimelineToday } from '../services/moodService';
-
-const { width } = Dimensions.get('window');
 
 type MoodEntry = {
   period_5_min: string;
@@ -40,11 +38,7 @@ export default function MoodTimelineChart({ onIntervalChange }: MoodTimelineChar
   const [refreshing, setRefreshing] = useState(false);
   const [intervalMinutes, setIntervalMinutes] = useState<number>(15);
 
-  useEffect(() => {
-    loadTimeline();
-  }, []);
-
-  const loadTimeline = async () => {
+  const loadTimeline = useCallback(async () => {
     try {
       const data = await getMoodTimelineToday();
       setTimeline(data);
@@ -70,7 +64,11 @@ export default function MoodTimelineChart({ onIntervalChange }: MoodTimelineChar
       setLoading(false);
       setRefreshing(false);
     }
-  };
+  }, [onIntervalChange]);
+
+  useEffect(() => {
+    loadTimeline();
+  }, [loadTimeline]);
 
   const onRefresh = () => {
     setRefreshing(true);

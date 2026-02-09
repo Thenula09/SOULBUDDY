@@ -421,6 +421,16 @@ const styles = StyleSheet.create({
     shadowRadius: 4,
     elevation: 3,
   },
+  pieTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    marginBottom: 12,
+    color: '#333',
+  },
+  emptyText: {
+    fontSize: 14,
+    color: '#777',
+  },
   chartContainer: {
     backgroundColor: '#FFF',
     borderRadius: 16,
