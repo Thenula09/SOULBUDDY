@@ -119,7 +119,7 @@ const HomeScreen = () => {
 
       const h = new Date().getHours();
       if (h < 6) setGreeting('Good early morning');
-      else if (h < 12) setGreeting('Good morning');
+      else if (h < 12) setGreeting('Good  morning');
       else if (h < 17) setGreeting('Good afternoon');
       else if (h < 21) setGreeting('Good evening');
       else setGreeting('Hello');
