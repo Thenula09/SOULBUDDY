@@ -47,9 +47,13 @@ export const fetchWithTimeout = async (
 
 // API Endpoints
 export const API_ENDPOINTS = {
-  // User Service
-  REGISTER: `${API_CONFIG.USER_SERVICE}/users/register`,
-  LOGIN: `${API_CONFIG.USER_SERVICE}/auth/login`,
+  // User Service - Auth
+  REGISTER: `${API_CONFIG.USER_SERVICE}/api/auth/register`,
+  LOGIN: `${API_CONFIG.USER_SERVICE}/api/auth/login`,
+  CURRENT_USER: `${API_CONFIG.USER_SERVICE}/api/auth/me`,
+  USER_BY_ID: (userId: number) => `${API_CONFIG.USER_SERVICE}/api/users/${userId}`,
+  
+  // Old endpoints (keeping for backward compatibility)
   PROFILE: (uid: string) => `${API_CONFIG.USER_SERVICE}/users/profile/${uid}`,
   MOOD: `${API_CONFIG.USER_SERVICE}/users/mood`,
   
