@@ -22,7 +22,7 @@ const Login: React.FC<AuthScreenProps> = ({ navigation }) => {
       return;
     }
     try {
-      const response = await fetch('http://10.0.2.2:8004/auth/login', {
+      const response = await fetch('http://10.0.2.2:8004/api/auth/login', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

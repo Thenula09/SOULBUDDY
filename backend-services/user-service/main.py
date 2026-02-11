@@ -8,8 +8,8 @@ from sqlalchemy.orm import Session
 from datetime import timedelta
 
 from database import engine, get_db, Base
-from models import User
-from schemas import UserCreate, UserLogin, UserResponse, Token
+from models import User, UserProfile
+from schemas import UserCreate, UserLogin, UserResponse, Token, UserProfileCreate, UserProfileUpdate, UserProfileResponse
 from auth import (
     verify_password,
     get_password_hash,
@@ -175,6 +175,80 @@ async def get_user(
             detail="User not found"
         )
     return user
+
+# Profile endpoints
+@app.get("/api/profile/me", response_model=UserProfileResponse)
+async def get_my_profile(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Get current user's profile"""
+    profile = db.query(UserProfile).filter(UserProfile.user_id == current_user.id).first()
+    if not profile:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Profile not found"
+        )
+    return profile
+
+@app.post("/api/profile/me", response_model=UserProfileResponse, status_code=status.HTTP_201_CREATED)
+async def create_or_update_profile(
+    profile_data: UserProfileCreate,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Create or update current user's profile"""
+    # Check if profile exists
+    profile = db.query(UserProfile).filter(UserProfile.user_id == current_user.id).first()
+    
+    if profile:
+        # Update existing profile
+        for key, value in profile_data.model_dump(exclude_unset=True).items():
+            setattr(profile, key, value)
+    else:
+        # Create new profile
+        profile = UserProfile(user_id=current_user.id, **profile_data.model_dump())
+        db.add(profile)
+    
+    db.commit()
+    db.refresh(profile)
+    return profile
+
+@app.put("/api/profile/me", response_model=UserProfileResponse)
+async def update_profile(
+    profile_data: UserProfileUpdate,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Update current user's profile"""
+    profile = db.query(UserProfile).filter(UserProfile.user_id == current_user.id).first()
+    if not profile:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Profile not found. Please create a profile first."
+        )
+    
+    # Update profile fields
+    for key, value in profile_data.model_dump(exclude_unset=True).items():
+        setattr(profile, key, value)
+    
+    db.commit()
+    db.refresh(profile)
+    return profile
+
+@app.get("/api/profile/{user_id}", response_model=UserProfileResponse)
+async def get_user_profile(
+    user_id: int,
+    db: Session = Depends(get_db)
+):
+    """Get user profile by user ID"""
+    profile = db.query(UserProfile).filter(UserProfile.user_id == user_id).first()
+    if not profile:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Profile not found"
+        )
+    return profile
 
 if __name__ == "__main__":
     import uvicorn

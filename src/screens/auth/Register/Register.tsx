@@ -29,15 +29,16 @@ const Register: React.FC<AuthScreenProps> = ({ navigation }) => {
       return;
     }
     try {
-      const response = await fetch('http://10.0.2.2:8004/users/register', {
+      const response = await fetch('http://10.0.2.2:8004/api/auth/register', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          name,
           email,
+          username: email.split('@')[0], // Generate username from email
           password,
+          full_name: name,
         }),
       });
       const data = await response.json();

@@ -17,10 +17,15 @@ if DATABASE_URL and DATABASE_URL.startswith("postgresql://"):
 
 # Create engine with error handling
 try:
+    # Different connect_args for PostgreSQL vs SQLite
+    connect_args = {}
+    if DATABASE_URL and "postgresql" in DATABASE_URL:
+        connect_args = {"connect_timeout": 10}
+    
     engine = create_engine(
         DATABASE_URL, 
         pool_pre_ping=True,
-        connect_args={"connect_timeout": 10}
+        connect_args=connect_args
     )
     SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 except Exception as e:
