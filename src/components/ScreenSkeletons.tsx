@@ -63,36 +63,6 @@ export const ChatSkeleton: React.FC = () => {
 };
 
 /**
- * Lifestyle Screen Skeleton
- * Matches LifestyleScreen analytics layout
- */
-export const LifestyleSkeleton: React.FC = () => {
-  return (
-    <View style={styles.container}>
-      {/* Header Stats */}
-      <View style={styles.statsRow}>
-        <SkeletonView width="48%" height={80} borderRadius={12} />
-        <SkeletonView width="48%" height={80} borderRadius={12} />
-      </View>
-
-      {/* Chart Section */}
-      <View style={styles.chartSection}>
-        <SkeletonView width={150} height={24} borderRadius={8} />
-        <SkeletonView width="100%" height={200} borderRadius={16} style={styles.chart} />
-      </View>
-
-      {/* Timeline */}
-      <View style={styles.timeline}>
-        <SkeletonView width={120} height={20} borderRadius={6} />
-        {[1, 2, 3].map((_, index) => (
-          <SkeletonView key={index} width="100%" height={60} borderRadius={12} style={styles.timelineItem} />
-        ))}
-      </View>
-    </View>
-  );
-};
-
-/**
  * Home Screen Skeleton
  * Matches HomeScreen layout
  */

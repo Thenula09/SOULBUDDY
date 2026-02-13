@@ -33,7 +33,6 @@ app.add_middleware(
 # Service URLs
 USER_SERVICE_URL = os.getenv("USER_SERVICE_URL", "http://localhost:8004")
 CHAT_SERVICE_URL = os.getenv("CHAT_SERVICE_URL", "http://localhost:8002")
-MOOD_SERVICE_URL = os.getenv("MOOD_SERVICE_URL", "http://localhost:8003")
 
 JWT_SECRET = os.getenv("JWT_SECRET_KEY", "your-secret-key-change-in-production")
 
@@ -125,8 +124,7 @@ async def root():
         "status": "running",
         "services": {
             "user_service": USER_SERVICE_URL,
-            "chat_service": CHAT_SERVICE_URL,
-            "mood_service": MOOD_SERVICE_URL
+            "chat_service": CHAT_SERVICE_URL
         }
     }
 
@@ -139,8 +137,7 @@ async def health_check():
     async with httpx.AsyncClient() as client:
         for name, url in [
             ("user_service", USER_SERVICE_URL),
-            ("chat_service", CHAT_SERVICE_URL),
-            ("mood_service", MOOD_SERVICE_URL)
+            ("chat_service", CHAT_SERVICE_URL)
         ]:
             try:
                 response = await client.get(f"{url}/health", timeout=5.0)
@@ -203,36 +200,6 @@ async def get_chat_history(user_id: int, request: Request):
     """Forward get chat history to chat service"""
     return await forward_request(
         f"{CHAT_SERVICE_URL}/api/chat/history/{user_id}",
-        "GET",
-        dict(request.headers)
-    )
-
-# Mood Service Routes
-@app.post("/api/mood/log")
-async def log_mood(request: Request):
-    """Forward mood log to mood service"""
-    body = await request.json()
-    return await forward_request(
-        f"{MOOD_SERVICE_URL}/api/mood/log",
-        "POST",
-        dict(request.headers),
-        body
-    )
-
-@app.get("/api/mood/{user_id}")
-async def get_mood_history(user_id: int, request: Request):
-    """Forward get mood history to mood service"""
-    return await forward_request(
-        f"{MOOD_SERVICE_URL}/api/mood/{user_id}",
-        "GET",
-        dict(request.headers)
-    )
-
-@app.get("/api/mood/analytics/{user_id}")
-async def get_mood_analytics(user_id: int, request: Request):
-    """Forward get analytics to mood service"""
-    return await forward_request(
-        f"{MOOD_SERVICE_URL}/api/mood/analytics/{user_id}",
         "GET",
         dict(request.headers)
     )

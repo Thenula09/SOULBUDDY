@@ -2,10 +2,9 @@ import React, { useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import HomeScreen from '../screens/home/Home/HomeScreen';
-import LifestyleScreen from '../screens/home/Lifestyle/LifestyleScreen';
 import ProfileScreen from '../screens/home/Profile/ProfileScreen';
 
-type Tab = 'Home' | 'Lifestyles' | 'Profile';
+type Tab = 'Home' | 'Profile';
 
 const MainTabs = () => {
   const [active, setActive] = useState<Tab>('Home');
@@ -25,8 +24,6 @@ const MainTabs = () => {
     switch (active) {
       case 'Home':
         return <HomeScreen />;
-      case 'Lifestyles':
-        return loadedScreens.has('Lifestyles') ? <LifestyleScreen /> : null;
       case 'Profile':
         return loadedScreens.has('Profile') ? <ProfileScreen /> : null;
       default:
@@ -43,7 +40,6 @@ const MainTabs = () => {
       <View style={styles.tabBar}>
         <TabButton label="Home" icon="🏠" active={active === 'Home'} onPress={() => handleTabPress('Home')} />
         <TabButton label="Chat" icon="💬" active={false} onPress={() => navigation.navigate('Chat')} />
-        <TabButton label="Lifestyles" icon="🌟" active={active === 'Lifestyles'} onPress={() => handleTabPress('Lifestyles')} />
         <TabButton label="Profile" icon="👤" active={active === 'Profile'} onPress={() => handleTabPress('Profile')} />
       </View>
     </View>

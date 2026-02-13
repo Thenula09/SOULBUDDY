@@ -7,7 +7,10 @@
     "ios": "react-native run-ios",
     "lint": "eslint .",
     "start": "react-native start",
-    "test": "jest"
+    "test": "jest",
+    "services:start": "bash scripts/start-services.sh",
+    "services:stop": "bash scripts/stop-services.sh",
+    "services:logs": "bash scripts/logs-services.sh"
   },
   "dependencies": {
     "@react-native-async-storage/async-storage": "^1.24.0",

@@ -1,13 +1,15 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
   ScrollView,
   StyleSheet,
-  ActivityIndicator,
   Dimensions,
   InteractionManager,
+  Platform,
 } from 'react-native';
+
+const MOOD_ANALYTICS_HOST = Platform.OS === 'android' ? 'http://10.0.2.2:8003' : 'http://10.190.154.90:8003';
 import { PieChart } from 'react-native-chart-kit';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import MoodTimelineChart from '../../../components/MoodTimelineChart';
@@ -28,20 +30,10 @@ type MoodAnalytics = {
 
 const LifestyleScreen = React.memo(() => {
   const [loading, setLoading] = useState(true);
-  const [moodData, setMoodData] = useState<MoodAnalytics[]>([]);
+  const [_moodData, _setMoodData] = useState<MoodAnalytics[]>([]);
   const [dominantEmotion, setDominantEmotion] = useState('');
-  const [bucketInterval, setBucketInterval] = useState<number | null>(null);
+  const [_bucketInterval, _setBucketInterval] = useState<number | null>(null);
   const [pieData, setPieData] = useState<any[]>([]);
-
-  useEffect(() => {
-    // Wait for navigation animation to complete before loading data
-    const task = InteractionManager.runAfterInteractions(() => {
-      fetchMoodAnalytics();
-      fetchLast24HourDistribution();
-    });
-
-    return () => task.cancel();
-  }, []);
 
   const fetchMoodAnalytics = useCallback(async () => {
     try {
@@ -52,7 +44,7 @@ const LifestyleScreen = React.memo(() => {
       
       if (cached && cacheTime && (now - parseInt(cacheTime, 10)) < 300000) {
         const data = JSON.parse(cached);
-        setMoodData(data);
+        _setMoodData(data);
         
         // Calculate dominant emotion
         const totals = {
@@ -84,7 +76,7 @@ const LifestyleScreen = React.memo(() => {
         return;
       }
 
-      const response = await fetch('http://10.0.2.2:8004/users/mood/analytics/today', {
+      const response = await fetch(`${MOOD_ANALYTICS_HOST}/api/mood/weekly/1`, {
         method: 'GET',
         headers: {
           'Authorization': `Bearer ${accessToken}`,
@@ -98,33 +90,45 @@ const LifestyleScreen = React.memo(() => {
         return;
       }
 
-      const data: MoodAnalytics[] = await response.json();
+      const responseData = await response.json();
+      
+      console.log('Weekly mood data received:', responseData);
+      
+      // Backend returns: {user_id, period, total_entries, emotions, dominant_emotion, sources, moods}
+      const emotions = responseData.emotions || {};
+      const fetchedDominantEmotion = responseData.dominant_emotion || 'Neutral';
       
       // Cache the data
-      await AsyncStorage.setItem('cached_mood_analytics', JSON.stringify(data));
+      await AsyncStorage.setItem('cached_mood_analytics', JSON.stringify(responseData));
       await AsyncStorage.setItem('mood_analytics_cache_time', now.toString());
       
-      setMoodData(data);
-
-      // Calculate dominant emotion for the day
-      const totals = {
-        Happy: 0,
-        Sad: 0,
-        Angry: 0,
-        Stress: 0,
-        Neutral: 0,
+      setDominantEmotion(fetchedDominantEmotion);
+      
+      // Build pie chart data from emotions
+      const palette: any = {
+        Happy: '#4CAF50',
+        Sad: '#2196F3',
+        Angry: '#F44336',
+        Stressed: '#FF9800',
+        Neutral: '#9E9E9E',
+        Anxious: '#9C27B0',
+        Excited: '#FF5722',
       };
 
-      data.forEach((slot) => {
-        totals.Happy += slot.happy_count;
-        totals.Sad += slot.sad_count;
-        totals.Angry += slot.angry_count;
-        totals.Stress += slot.stress_count;
-        totals.Neutral += slot.neutral_count;
+      const pie: any[] = [];
+      Object.entries(emotions).forEach(([name, value]) => {
+        if ((value as number) > 0) {
+          pie.push({
+            name,
+            population: value,
+            color: palette[name] || '#ccc',
+            legendFontColor: '#333',
+            legendFontSize: 12,
+          });
+        }
       });
-
-      const dominant = Object.entries(totals).reduce((a, b) => (a[1] > b[1] ? a : b))[0];
-      setDominantEmotion(dominant);
+      
+      setPieData(pie);
 
       setLoading(false);
     } catch (error) {
@@ -163,7 +167,24 @@ const LifestyleScreen = React.memo(() => {
         return;
       }
 
-      const items = await resp.json();
+      const json = await resp.json();
+      // normalize response to an array — backend may return { moods: [...] } or { data: [...] }
+      const items = Array.isArray(json)
+        ? json
+        : Array.isArray(json.moods)
+        ? json.moods
+        : Array.isArray(json.data)
+        ? json.data
+        : [];
+
+      if (!Array.isArray(items)) {
+        console.warn('Expected array for week moods — normalized to empty array. Server response:', json);
+      }
+
+      if (items.length === 0) {
+        console.warn('No mood data available for the last 24 hours.');
+      }
+
       const now = new Date();
       const since = new Date(now.getTime() - 24 * 60 * 60 * 1000);
 
@@ -171,16 +192,19 @@ const LifestyleScreen = React.memo(() => {
       const EMOTIONS = ['Happy','Sad','Angry','Stress','Neutral','Fear','Surprised','Disgust'];
       EMOTIONS.forEach((e) => (counts[e] = 0));
 
-      (items || []).forEach((it: any) => {
-        const ts = new Date(it.ts);
-        if (ts >= since && ts <= now) {
-          const emotion = (it.emotion && it.emotion.charAt(0).toUpperCase() + it.emotion.slice(1)) || 'Neutral';
-          if (!counts[emotion]) counts[emotion] = 0;
-          counts[emotion] += 1;
+      items.forEach((it: any) => {
+        if (it && it.ts && it.emotion) {
+          const ts = new Date(it.ts);
+          if (ts >= since && ts <= now) {
+            const emotion = (it.emotion.charAt(0).toUpperCase() + it.emotion.slice(1)) || 'Neutral';
+            if (!counts[emotion]) counts[emotion] = 0;
+            counts[emotion] += 1;
+          }
+        } else {
+          console.warn('Invalid item structure in mood data:', it);
         }
       });
 
-      // Build pie data compatible with react-native-chart-kit PieChart
       const palette = {
         Happy: '#4CAF50',
         Sad: '#2196F3',
@@ -193,7 +217,7 @@ const LifestyleScreen = React.memo(() => {
       } as any;
 
       const pie: any[] = [];
-      Object.entries(counts).forEach(([name, value], i) => {
+      Object.entries(counts).forEach(([name, value]) => {
         if (value > 0) {
           pie.push({
             name,
@@ -205,7 +229,10 @@ const LifestyleScreen = React.memo(() => {
         }
       });
 
-      // Cache pie data
+      if (pie.length === 0) {
+        console.warn('No pie chart data generated. Counts:', counts);
+      }
+
       const currentTimestamp = Date.now();
       await AsyncStorage.setItem('cached_pie_data', JSON.stringify(pie));
       await AsyncStorage.setItem('pie_data_cache_time', currentTimestamp.toString());
@@ -216,46 +243,15 @@ const LifestyleScreen = React.memo(() => {
     }
   }, []);
 
-  // Prepare chart data (memoized for performance)
-  const chartData = useMemo(() => {
-    if (!moodData || moodData.length === 0) {
-      return {
-        labels: ['6am', '10am', '2pm', '6pm', '10pm'],
-        datasets: [{ data: [0, 0, 0, 0, 0] }],
-      };
-    }
-
-    const labels: string[] = [];
-    const scores: number[] = [];
-
-    moodData.forEach((slot) => {
-      if (slot.total_count > 0) {
-        labels.push(slot.time_slot);
-        scores.push(slot.average_score);
-      }
+  useEffect(() => {
+    // Wait for navigation animation to complete before loading data
+    const task = InteractionManager.runAfterInteractions(() => {
+      fetchMoodAnalytics();
+      fetchLast24HourDistribution();
     });
 
-    // Ensure we have at least 5 data points for the chart
-    while (labels.length < 5) {
-      labels.push('');
-      scores.push(0);
-    }
-
-    return {
-      labels: labels.slice(0, 5),
-      datasets: [{ data: scores.slice(0, 5) }],
-    };
-  }, [moodData]);
-
-  const chartConfig = {
-    backgroundGradientFrom: '#fff',
-    backgroundGradientTo: '#fff',
-    color: (opacity = 1) => `rgba(255, 0, 0, ${opacity})`,
-    strokeWidth: 2,
-    barPercentage: 0.6,
-    useShadowColorFromDataset: false,
-    decimalPlaces: 1,
-  };
+    return () => task.cancel();
+  }, [fetchMoodAnalytics, fetchLast24HourDistribution]);
 
   const getEmotionColor = (emotion: string) => {
     switch (emotion) {
@@ -355,21 +351,21 @@ const LifestyleScreen = React.memo(() => {
         <Text style={styles.legendTitle}>Emotion Legend</Text>
         <View style={styles.legendRow}>
           <View style={styles.legendItem}>
-            <View style={[styles.legendColor, { backgroundColor: '#4CAF50' }]} />
+            <View style={[styles.legendColor, styles.happyColor]} />
             <Text style={styles.legendText}>😊 Happy</Text>
           </View>
           <View style={styles.legendItem}>
-            <View style={[styles.legendColor, { backgroundColor: '#2196F3' }]} />
+            <View style={[styles.legendColor, styles.sadColor]} />
             <Text style={styles.legendText}>😔 Sad</Text>
           </View>
         </View>
         <View style={styles.legendRow}>
           <View style={styles.legendItem}>
-            <View style={[styles.legendColor, { backgroundColor: '#F44336' }]} />
+            <View style={[styles.legendColor, styles.angryColor]} />
             <Text style={styles.legendText}>😡 Angry</Text>
           </View>
           <View style={styles.legendItem}>
-            <View style={[styles.legendColor, { backgroundColor: '#FF9800' }]} />
+            <View style={[styles.legendColor, styles.stressColor]} />
             <Text style={styles.legendText}>😰 Stress</Text>
           </View>
         </View>
@@ -539,6 +535,18 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
     marginBottom: 8,
+  },
+  happyColor: {
+    backgroundColor: '#4CAF50',
+  },
+  sadColor: {
+    backgroundColor: '#2196F3',
+  },
+  angryColor: {
+    backgroundColor: '#F44336',
+  },
+  stressColor: {
+    backgroundColor: '#FF9800',
   },
 });
 

@@ -111,7 +111,6 @@ SOULBUDDY/
 ├── backend-services/          # Backend microservices - FastAPI
 │   ├── user-service/
 │   ├── chat-ai-service/
-│   ├── mood-analytics/
 │   └── api-gateway/
 └── docs/                      # Documentation
 ```

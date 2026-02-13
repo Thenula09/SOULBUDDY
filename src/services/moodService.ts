@@ -1,4 +1,8 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { Platform } from 'react-native';
+
+// Use emulator-friendly host: Android emulator -> 10.0.2.2, otherwise use machine IP
+const USER_SERVICE_HOST = Platform.OS === 'android' ? 'http://10.0.2.2:8004' : 'http://10.190.154.90:8004';
 
 type MoodData = {
   emotion: string; // Happy, Sad, Angry, Stress, Neutral
@@ -27,7 +31,7 @@ export const saveMoodData = async (moodData: MoodData): Promise<boolean> => {
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 5000); // 5 second timeout
 
-    const response = await fetch('http://10.0.2.2:8004/users/mood', {
+    const response = await fetch(`${USER_SERVICE_HOST}/users/mood`, {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${accessToken}`,
@@ -115,140 +119,6 @@ export const getMoodAnalytics = async () => {
     return data;
   } catch (error) {
     console.error('Error getting mood analytics:', error);
-    return [];
-  }
-};
-
-/**
- * Get mood timeline for today (5-min buckets) for chart visualization
- * Returns array of {period_5_min, emotion, intensity, ts, lifestyle}
- */
-export const getMoodTimelineToday = async () => {
-  try {
-    const accessToken = await AsyncStorage.getItem('access_token');
-    
-    if (!accessToken) {
-      console.error('No access token found');
-      return [];
-    }
-
-    // Call user-service endpoint (port 8004)
-    const response = await fetch('http://10.0.2.2:8004/users/mood/timeline/today', {
-      method: 'GET',
-      headers: {
-        'Authorization': `Bearer ${accessToken}`,
-        'Content-Type': 'application/json',
-      },
-    });
-
-    if (!response.ok) {
-      console.error('Failed to fetch mood timeline');
-      return [];
-    }
-
-    const data = await response.json();
-    return data;
-  } catch (error) {
-    console.error('Error getting mood timeline:', error);
-    return [];
-  }
-};
-
-/**
- * Get mood timeline for the past week
- */
-export const getMoodTimelineWeek = async () => {
-  try {
-    const accessToken = await AsyncStorage.getItem('access_token');
-    
-    if (!accessToken) {
-      console.error('No access token found');
-      return [];
-    }
-
-    const response = await fetch('http://10.0.2.2:8003/api/v1/mood/timeline/week', {
-      method: 'GET',
-      headers: {
-        'Authorization': `Bearer ${accessToken}`,
-        'Content-Type': 'application/json',
-      },
-    });
-
-    if (!response.ok) {
-      console.error('Failed to fetch weekly mood timeline');
-      return [];
-    }
-
-    const data = await response.json();
-    return data;
-  } catch (error) {
-    console.error('Error getting weekly mood timeline:', error);
-    return [];
-  }
-};
-
-/**
- * Get mood analytics for today (aggregated data)
- */
-export const getMoodAnalyticsToday = async () => {
-  try {
-    const accessToken = await AsyncStorage.getItem('access_token');
-    
-    if (!accessToken) {
-      console.error('No access token found');
-      return null;
-    }
-
-    const response = await fetch('http://10.0.2.2:8003/api/v1/mood/analytics/today', {
-      method: 'GET',
-      headers: {
-        'Authorization': `Bearer ${accessToken}`,
-        'Content-Type': 'application/json',
-      },
-    });
-
-    if (!response.ok) {
-      console.error('Failed to fetch mood analytics');
-      return null;
-    }
-
-    const data = await response.json();
-    return data;
-  } catch (error) {
-    console.error('Error getting mood analytics:', error);
-    return null;
-  }
-};
-
-/**
- * Get mood analytics for the past week (daily breakdown)
- */
-export const getMoodAnalyticsWeek = async () => {
-  try {
-    const accessToken = await AsyncStorage.getItem('access_token');
-    
-    if (!accessToken) {
-      console.error('No access token found');
-      return [];
-    }
-
-    const response = await fetch('http://10.0.2.2:8003/api/v1/mood/analytics/week', {
-      method: 'GET',
-      headers: {
-        'Authorization': `Bearer ${accessToken}`,
-        'Content-Type': 'application/json',
-      },
-    });
-
-    if (!response.ok) {
-      console.error('Failed to fetch weekly mood analytics');
-      return [];
-    }
-
-    const data = await response.json();
-    return data;
-  } catch (error) {
-    console.error('Error getting mood timeline:', error);
     return [];
   }
 };

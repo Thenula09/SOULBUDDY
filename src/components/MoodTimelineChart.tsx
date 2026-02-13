@@ -75,9 +75,20 @@ export default function MoodTimelineChart({ onIntervalChange }: MoodTimelineChar
     loadTimeline();
   };
 
-  const formatTime = (isoString: string) => {
-    const date = new Date(isoString);
-    return date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+  const formatTime = (value?: string) => {
+    if (!value) return '';
+
+    // If it's already an ISO or numeric timestamp parseable by Date, format it.
+    const maybeNum = Number(value);
+    const tryDate = !isNaN(maybeNum) ? new Date(maybeNum) : new Date(value);
+    if (!isNaN(tryDate.getTime())) {
+      return tryDate.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+    }
+
+    // If value already looks like a HH:MM string (e.g. '03:30 PM' or '15:30'), return as-is.
+    if (/\d{1,2}:\d{2}/.test(value)) return value;
+
+    return '';
   };
 
   if (loading) {
@@ -149,6 +160,15 @@ export default function MoodTimelineChart({ onIntervalChange }: MoodTimelineChar
               // Use period_5_min for accurate time display on chart
               const displayTime = entry.period_5_min || entry.ts;
 
+              // validate emotion — show it only for known emotions; otherwise show time below the bar
+              const knownEmotions = new Set(['happy','sad','angry','stress','neutral','fear','surprised','disgust']);
+              const emotionKey = toEmotionKey(entry.emotion);
+              const showEmotion = emotionKey && knownEmotions.has(emotionKey);
+
+              const emotionText = showEmotion
+                ? <Text>{entry.emotion.charAt(0).toUpperCase() + entry.emotion.slice(1)}</Text>
+                : <Text>{formatTime(displayTime)}</Text>;
+
               return (
                 <View key={index} style={[styles.barWrapper, { width: wrapperWidth, marginHorizontal: wrapperMargin }]}>
                   <View style={styles.barColumn}>
@@ -164,7 +184,7 @@ export default function MoodTimelineChart({ onIntervalChange }: MoodTimelineChar
                     />
                   </View>
                   <Text style={[styles.timeLabel, { width: timeWidth }]}>{showLabel ? formatTime(displayTime) : ''}</Text>
-                  <Text style={styles.emotionLabel}>{entry.emotion}</Text>
+                  <Text style={styles.emotionLabel}>{emotionText}</Text>
                 </View>
               );
             })}

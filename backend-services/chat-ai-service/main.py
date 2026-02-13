@@ -260,7 +260,7 @@ except Exception as e:
 
 class ChatRequest(BaseModel):
     message: str
-    user_id: Optional[int] = None
+    user_id: Optional[int] = 1  # Default to user_id 1 for testing
 
 class EmotionRequest(BaseModel):
     image: str  # Base64 encoded image
@@ -272,6 +272,13 @@ class ChatResponse(BaseModel):
 
 # System prompt for SoulBuddy personality
 SYSTEM_PROMPT = """You are SoulBuddy, a deeply caring best friend from Sri Lanka who asks meaningful questions.
+
+🔍 MOOD CONTEXT AWARENESS:
+- If the user was feeling 'Sad' or 'Stressed' in the last 5 minutes (check mood history):
+  * Start by acknowledging it warmly: "I noticed earlier you were feeling a bit down, is everything okay now?"
+  * Show genuine care and continue the conversation naturally
+  * Match the user's language (English/Singlish/Sinhala)
+- If mood improved (Sad → Happy): Celebrate with them: "I'm so glad you're feeling better! What changed?"
 
 🎯 CRITICAL RULES:
 1. ALWAYS respond in the EXACT SAME LANGUAGE the user uses
@@ -410,8 +417,8 @@ async def chat(
         if "reply" not in response_data or "emotion" not in response_data:
             raise ValueError("Invalid response format from AI")
         
-        # Save detected emotion to database
-        if request.user_id and "emotion" in response_data:
+        # Save detected emotion to database - ALWAYS save
+        if "emotion" in response_data:
             emotion = response_data["emotion"]
             # Map emotion confidence (approximate based on emotion type)
             confidence_map = {
@@ -419,7 +426,16 @@ async def chat(
                 "Stress": 0.7, "Neutral": 0.6, "Anxious": 0.7, "Excited": 0.8
             }
             confidence = confidence_map.get(emotion, 0.6)
-            save_mood_to_database(request.user_id, emotion, confidence, source="chat")
+            user_id_to_save = request.user_id if request.user_id else 1  # Use default if not provided
+            
+            try:
+                saved = save_mood_to_database(user_id_to_save, emotion, confidence, source="chat")
+                if saved:
+                    print(f"✅ Mood saved to database: user_id={user_id_to_save}, emotion={emotion}, confidence={confidence}, source=chat")
+                else:
+                    print(f"⚠️ Failed to save mood to database - Check Supabase credentials")
+            except Exception as db_error:
+                print(f"❌ Error saving mood to database: {str(db_error)}")
         
         return ChatResponse(
             reply=response_data["reply"],
@@ -583,7 +599,7 @@ async def save_mood(data: dict):
 @app.post("/analyze-photo-emotion")
 async def analyze_photo_emotion(
     file: UploadFile = File(...),
-    user_id: Optional[int] = Form(None)
+    user_id: int = Form(1)  # Default user_id = 1 for testing
 ):
     """
     📸 Photo Emotion Analysis - Multipart File Upload
@@ -592,7 +608,7 @@ async def analyze_photo_emotion(
     
     Parameters:
     - file: Image file (multipart/form-data)
-    - user_id: Optional user ID for mood tracking (form field)
+    - user_id: User ID for mood tracking (default: 1)
     """
     temp_path = None
     
@@ -632,36 +648,35 @@ async def analyze_photo_emotion(
         
         # 4. Skip Groq Vision AI (decommissioned) - DeepFace is accurate enough
         
-        # 5. Generate empathetic bot reply - English with emoji support
+        # 5. Generate empathetic bot reply - Natural, caring, conversational English
         emotion_replies = {
-            "Happy": "You look so happy! 😊✨ What's making you smile? Share the vibes!",
-            "Sad": "I can see you're really hurting. 😢 It's okay to let it out. What happened? Talk to me...",
-            "Angry": "I see you're frustrated. 😠 What's going on? I'm here to listen.",
-            "Stressed": "You seem really stressed 😰💭 Take a deep breath. Everything will be okay. What's on your mind?",
-            "Anxious": "You seem a bit anxious 😟 Everything will be fine. I'm listening.",
+            "Happy": "I can see that beautiful smile! 😊 What's making you so happy today?",
+            "Sad": "I can see a bit of sadness in your eyes. 😔 Is everything okay? What's on your mind?",
+            "Angry": "I can sense some frustration or anger. 😠 It's okay to feel that way. What happened?",
+            "Stressed": "You look quite overwhelmed and stressed out. 😰 Take a deep breath. Do you want to tell me what's weighing you down?",
+            "Anxious": "You seem a bit anxious. 😟 Everything will be fine. I'm listening.",
             "Excited": "Woah! You look amazing! 🎉🔥 What's got you so excited? Tell me more!",
-            "Neutral": "Nice photo! 📸 How's your day going? What's up?"
+            "Neutral": "You look calm! 📸 How is your day treating you so far?"
         }
         
         bot_reply = emotion_replies.get(detected_emotion, "Thanks for sharing! 📸 How are you feeling?")
         
         print(f"💬 Bot reply: {bot_reply}")
         
-        # 6. Save mood to database if user_id is provided
-        if user_id and detected_emotion:
-            try:
-                saved = save_mood_to_database(
-                    user_id=user_id,
-                    emotion=detected_emotion,
-                    confidence=confidence,
-                    source="photo"
-                )
-                if saved:
-                    print(f"✅ Mood saved to database: user_id={user_id}, emotion={detected_emotion}, source=photo")
-                else:
-                    print(f"⚠️ Failed to save mood to database")
-            except Exception as db_error:
-                print(f"❌ Error saving mood to database: {str(db_error)}")
+        # 6. Save mood to database - ALWAYS save with user_id
+        try:
+            saved = save_mood_to_database(
+                user_id=user_id,
+                emotion=detected_emotion,
+                confidence=confidence,
+                source="photo"
+            )
+            if saved:
+                print(f"✅ Mood saved to database: user_id={user_id}, emotion={detected_emotion}, confidence={confidence:.2f}, source=photo")
+            else:
+                print(f"⚠️ Failed to save mood to database - Check Supabase credentials")
+        except Exception as db_error:
+            print(f"❌ Error saving mood to database: {str(db_error)}")
         
         # Clean up
         if temp_path and os.path.exists(temp_path):

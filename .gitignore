@@ -74,6 +74,20 @@ yarn-error.log
 !.yarn/sdks
 !.yarn/versions
 
+# Python Virtual Environments
+venv/
+deepface-env/
+*.pyc
+__pycache__/
+
+# Test files
+test_face.jpg
+test_face_result.jpg
+
+# Process IDs and logs
+.pid
+*.log
+
 # Python
 __pycache__/
 *.pyc
