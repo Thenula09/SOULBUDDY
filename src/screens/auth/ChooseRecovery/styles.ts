@@ -36,7 +36,7 @@ export const chooseStyles = StyleSheet.create({
     paddingVertical: 14,
     paddingHorizontal: 16,
     marginTop: 16,
-    backgroundColor: '#2e0af4', // match Login primary button
+    backgroundColor: '#FF0000', // match Login primary button
     borderWidth: 0,
     alignItems: 'center',
     marginBottom: 16,
@@ -54,7 +54,7 @@ export const chooseStyles = StyleSheet.create({
   },
   linkText: {
     fontSize: 16,
-    color: '#007AFF',
+    color: '#FF0000',
     textAlign: 'center',
     marginTop: 24,
     fontWeight: '500',

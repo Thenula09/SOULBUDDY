@@ -223,6 +223,19 @@ const HomeScreen = () => {
           </TouchableOpacity>
         </View>
       )}
+      
+      {/* Floating Chatbot Button */}
+      <TouchableOpacity 
+        style={styles.floatingChatbot} 
+        onPress={handleChatPress}
+        activeOpacity={0.8}
+      >
+        <Rive
+          resourceName="chatbot"
+          autoplay={true}
+          style={styles.floatingBotAnimation}
+        />
+      </TouchableOpacity>
     </LinearGradient>
   );
 };
@@ -331,6 +344,33 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: '600',
     letterSpacing: 0.5,
+  },
+
+  // Floating chatbot button
+  floatingChatbot: {
+    position: 'absolute',
+    bottom: 30,
+    right: 20,
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: '#1976D2',
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#1976D2',
+    shadowOffset: {
+      width: 0,
+      height: 4,
+    },
+    shadowOpacity: 0.4,
+    shadowRadius: 8,
+    elevation: 8,
+  },
+
+  // Floating bot animation
+  floatingBotAnimation: {
+    width: 60,
+    height: 60,
   },
 });
 

@@ -250,7 +250,7 @@ const LifestyleScreen = React.memo(() => {
   const chartConfig = {
     backgroundGradientFrom: '#fff',
     backgroundGradientTo: '#fff',
-    color: (opacity = 1) => `rgba(0, 122, 255, ${opacity})`,
+    color: (opacity = 1) => `rgba(255, 0, 0, ${opacity})`,
     strokeWidth: 2,
     barPercentage: 0.6,
     useShadowColorFromDataset: false,

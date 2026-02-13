@@ -37,12 +37,12 @@ export const mobileStyles = StyleSheet.create({
   button: {
     width: '100%',
     height: 54,
-    backgroundColor: '#007AFF',
+    backgroundColor: '#FF0000',
     borderRadius: 12,
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 16,
-    shadowColor: '#007AFF',
+    shadowColor: '#FF0000',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
     shadowRadius: 8,
@@ -56,7 +56,7 @@ export const mobileStyles = StyleSheet.create({
   },
   linkText: {
     fontSize: 16,
-    color: '#007AFF',
+    color: '#FF0000',
     textAlign: 'center',
     marginTop: 16,
     fontWeight: '500',

@@ -63,7 +63,7 @@ const styles = StyleSheet.create({
   tabBar: {
     height: 65,
     flexDirection: 'row',
-    backgroundColor: '#007AFF',
+    backgroundColor: '#FF0000',
     borderRadius: 30,
     marginHorizontal: 20,
     marginBottom: 20,
@@ -96,7 +96,7 @@ const styles = StyleSheet.create({
   },
   icon: { fontSize: 24 },
   label: { fontSize: 10, color: '#fff', marginTop: 2 },
-  labelActive: { color: '#007AFF', fontWeight: '600' },
+  labelActive: { color: '#FF0000', fontWeight: '600' },
 });
 
 export default MainTabs;

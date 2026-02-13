@@ -3,7 +3,6 @@ import { StackNavigationProp } from '@react-navigation/stack';
 export type RootStackParamList = {
   Onboarding1: undefined;
   Onboarding2: undefined;
-  Onboarding3: undefined;
   Login: undefined;
   ForgotPassword: undefined;
   ChooseRecovery: undefined;
@@ -14,6 +13,7 @@ export type RootStackParamList = {
   Chat: undefined;
   AdminLogin: undefined;
   AdminHome: undefined;
+  RiveAnimationDemo: undefined;
 };
 
 export type OnboardingNavigationProp = StackNavigationProp<RootStackParamList>;

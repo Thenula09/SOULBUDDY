@@ -4,7 +4,6 @@ import { createStackNavigator } from '@react-navigation/stack';
 import { TouchableOpacity, Text, StyleSheet } from 'react-native';
 import Onboarding1 from '../screens/onboarding/Onboarding1';
 import Onboarding2 from '../screens/onboarding/Onboarding2';
-import Onboarding3 from '../screens/onboarding/Onboarding3';
 import Login from '../screens/auth/Login/Login';
 import Register from '../screens/auth/Register/Register';
 import ForgotPassword from '../screens/auth/ForgotPassword/ForgotPassword';
@@ -15,6 +14,7 @@ import AdminLogin from '../screens/admin/AdminLogin/AdminLogin';
 import AdminHome from '../screens/admin/AdminHome/AdminHome';
 import MainTabs from './MainTabs';
 import ChatScreen from '../screens/chat/Chat/ChatScreen';
+import RiveAnimationDemo from '../screens/demo/RiveAnimationDemo';
 
 // Back button moved out of render to avoid unstable nested components
 const BackButton = ({ onPress }: { onPress: () => void }) => (
@@ -41,7 +41,6 @@ function AppNavigator() {
       >
         <Stack.Screen name="Onboarding1" component={Onboarding1} />
         <Stack.Screen name="Onboarding2" component={Onboarding2} />
-        <Stack.Screen name="Onboarding3" component={Onboarding3} />
         <Stack.Screen name="Login" component={Login} />
         <Stack.Screen name="ForgotPassword" component={ForgotPassword} />
         <Stack.Screen name="ChooseRecovery" component={ChooseRecovery} />
@@ -51,6 +50,15 @@ function AppNavigator() {
         <Stack.Screen name="AdminLogin" component={AdminLogin} />
         <Stack.Screen name="AdminHome" component={AdminHome} options={{ headerShown: true, headerTitle: 'Admin' }} />
         <Stack.Screen name="Main" component={MainTabs} />
+        <Stack.Screen name="RiveAnimationDemo" component={RiveAnimationDemo} 
+          options={{ 
+            headerShown: true, 
+            headerTitle: 'Animation Demo',
+            headerStyle: { backgroundColor: '#3498DB' },
+            headerTintColor: '#fff',
+            headerTitleStyle: { fontWeight: 'bold' }
+          }} 
+        />
         <Stack.Screen
           name="Chat"
           component={ChatScreen}

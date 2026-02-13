@@ -1,505 +1,424 @@
 import React, { useEffect, useState, useCallback } from 'react';
-import {
-  View,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  ScrollView,
-  Image,
-  StyleSheet,
-  Alert,
-  InteractionManager,
-} from 'react-native';
-import { launchImageLibrary } from 'react-native-image-picker';
+import { View, Text, StyleSheet, Image, ActivityIndicator, Alert, TextInput, TouchableOpacity, ScrollView } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { Picker } from '@react-native-picker/picker';
-import { ProfileSkeleton } from '../../../components/ScreenSkeletons';
-import HealthSelection from '../../../components/HealthSelection';
+import { launchImageLibrary } from 'react-native-image-picker';
+import { useIsFocused } from '@react-navigation/native';
 
-const HOBBIES = [
-  'Reading',
-  'Traveling',
-  'Cooking',
-  'Gaming',
-  'Photography',
-  'Gardening',
-  'Painting',
-  'Writing',
-  'Music',
-  'Dancing',
-];
+const HOBBIES_PRESET = ['Reading','Traveling','Cooking','Gaming','Photography','Gardening','Painting','Writing','Music','Dancing'];
+const HEALTH_PRESET = ['Diabetes','Hypertension','Asthma','Anxiety','Depression','Allergy','Back Pain','Arthritis','Migraine','Thyroid','Cardiac','Obesity','Insomnia','Skin Condition','Other'];
 
-type Profile = {
-  user_id: string | null;
-  full_name: string;
-  hobbies: string;
-  family_members: number; // store as number
-  ambitions: string[];
-  job_title: string;
-  is_student: boolean;
-  is_married: boolean;
-  relationship_status: string;
-  health_conditions: string[];
-  favorite_songs: string[];
-  province: string;
-  village: string;
-  profile_photo_url?: string;
-  lifestyle?: {
-    sleep?: number; // hours
-    exercise?: number; // minutes
-    diet?: string; // good/okay/poor
-    [key: string]: any;
-  };
-};
-
-const defaultProfile: Profile = {
-  user_id: null,
-  full_name: '',
-  hobbies: 'Music',
-  family_members: 0,
-  ambitions: [],
-  job_title: '',
-  is_student: false,
-  is_married: false,
-  relationship_status: 'single',
-  health_conditions: [],
-  favorite_songs: [],
-  province: '',
-  village: '',
-  profile_photo_url: undefined,
-  lifestyle: { sleep: 7, exercise: 30, diet: 'good' },
-};
-
-const ProfileScreen = React.memo(() => {
+const ProfileScreen: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [userId, setUserId] = useState<string | null>(null);
-  const [newAmbition, setNewAmbition] = useState('');
-  const [newSong, setNewSong] = useState('');
-  const [profile, setProfile] = useState<Profile>(defaultProfile);
+  const [fullName, setFullName] = useState('');
+  const [photoUri, setPhotoUri] = useState<string | undefined>(undefined);
+  const [hobbies, setHobbies] = useState<string[]>([]);
+  const [newHobby, setNewHobby] = useState('');
+  const [gender, setGender] = useState<'male'|'female'|'other'|null>(null);
+  const [healthConditions, setHealthConditions] = useState<string[]>([]);
+  const [newCondition, setNewCondition] = useState('');
+  
+  // New fields
+  const [petName, setPetName] = useState('');
+  const [jobTitle, setJobTitle] = useState('');
+  const [topCompany, setTopCompany] = useState('');
+  const [familyMembers, setFamilyMembers] = useState(0);
+  const [age, setAge] = useState<number | undefined>(undefined);
+  const [weight, setWeight] = useState<number | undefined>(undefined);
+  const [province, setProvince] = useState('');
+  const [city, setCity] = useState('');
+  const [village, setVillage] = useState('');
+  const [sleepHours, setSleepHours] = useState<number | undefined>(undefined);
+  const [exerciseTime, setExerciseTime] = useState('');
+  const [sleepLatency, setSleepLatency] = useState<number | undefined>(undefined);
 
-  useEffect(() => {
-    // Defer loading until after navigation animation
-    const task = InteractionManager.runAfterInteractions(() => {
-      const load = async () => {
-        const uid = await AsyncStorage.getItem('user_id');
-        setUserId(uid);
-        if (uid) await getProfile(uid);
-      };
-      load();
-    });
+  const isFocused = useIsFocused();
 
-    return () => task.cancel();
+  const loadLocal = useCallback(async () => {
+    const uid = await AsyncStorage.getItem('user_id');
+    const name = await AsyncStorage.getItem('user_name');
+    const localPhoto = uid ? await AsyncStorage.getItem(`profile_photo_${uid}`) : await AsyncStorage.getItem('profile_photo');
+    const localProfile = uid ? await AsyncStorage.getItem(`local_profile_${uid}`) : await AsyncStorage.getItem('local_profile');
+    console.log('ProfileScreen loadLocal - uid:', uid, 'name:', name);
+    setUserId(uid);
+    setFullName(name || '');
+    setPhotoUri(localPhoto || undefined);
+    if (localProfile) {
+      try {
+        const parsed = JSON.parse(localProfile);
+        setHobbies(parsed.hobbies || []);
+        setGender(parsed.gender || null);
+        setHealthConditions(parsed.health_conditions || []);
+        // Load new fields
+        setPetName(parsed.pet_name || '');
+        setJobTitle(parsed.job_title || '');
+        setTopCompany(parsed.top_company || '');
+        setFamilyMembers(parsed.family_members || 0);
+        setAge(parsed.age || undefined);
+        setWeight(parsed.weight || undefined);
+        setProvince(parsed.province || '');
+        setCity(parsed.city || '');
+        setVillage(parsed.village || '');
+        setSleepHours(parsed.sleep_hours || undefined);
+        setExerciseTime(parsed.exercise_time || '');
+        setSleepLatency(parsed.sleep_latency || undefined);
+      } catch (e) {
+        console.warn('Failed to parse local profile', e);
+      }
+    }
+    setLoading(false);
   }, []);
 
-  const getProfile = useCallback(async (uid: string) => {
-    try {
-      // Check cache first (10 min TTL for profile)
-      const cached = await AsyncStorage.getItem('cached_profile_data');
-      const cacheTime = await AsyncStorage.getItem('profile_cache_time');
-      const cacheTimestamp = Date.now();
-      
-      if (cached && cacheTime && (cacheTimestamp - parseInt(cacheTime, 10)) < 600000) {
-        const profileData = JSON.parse(cached);
-        setProfile({ ...defaultProfile, ...profileData });
-        setLoading(false);
-        return;
-      }
-      
-      setLoading(true);
+  useEffect(() => {
+    loadLocal();
+  }, [loadLocal]);
 
-      // Prefer authenticated endpoint that uses Authorization token
-      const accessToken = await AsyncStorage.getItem('access_token');
-      let res;
-      if (accessToken) {
-        res = await fetch(`http://10.0.2.2:8004/users/profile`, {
-          method: 'GET',
-          headers: {
-            'Authorization': `Bearer ${accessToken}`,
-            'Content-Type': 'application/json',
-          },
-        });
-      }
-
-      // Fallback to unauthenticated endpoint by user id
-      if (!res || !res.ok) {
-        res = await fetch(`http://10.0.2.2:8004/users/profile/${uid}`);
-      }
-
-      if (!res.ok) {
-        setLoading(false);
-        return;
-      }
-
-      const data = await res.json();
-      // Normalize fields safely into our Profile type
-      const normalized: Profile = {
-        user_id: uid,
-        full_name: data.full_name || '',
-        hobbies: Array.isArray(data.hobbies) ? data.hobbies[0] || 'Music' : (data.hobbies || 'Music'),
-        family_members: data.family_members ? Number(data.family_members) : 0,
-        ambitions: Array.isArray(data.ambitions) ? data.ambitions : (data.ambitions ? [data.ambitions] : []),
-        job_title: data.job_title || '',
-        is_student: Boolean(data.is_student),
-        is_married: Boolean(data.is_married),
-        relationship_status: data.relationship_status || 'single',
-        health_conditions: Array.isArray(data.health_conditions) ? data.health_conditions : (data.health_conditions ? [data.health_conditions] : []),
-        favorite_songs: Array.isArray(data.favorite_songs) ? data.favorite_songs : (data.favorite_songs ? [data.favorite_songs] : []),
-        province: data.province || '',
-        village: data.village || '',
-        profile_photo_url: data.profile_photo_url || undefined,
-        lifestyle: data.lifestyle || { sleep: 7, exercise: 30, diet: 'good' },
-      };
-      
-      // Cache the profile data
-      const saveTimestamp = Date.now();
-      await AsyncStorage.setItem('cached_profile_data', JSON.stringify(normalized));
-      await AsyncStorage.setItem('profile_cache_time', saveTimestamp.toString());
-      
-      setProfile(normalized);
-    } catch (e) {
-      console.error('Failed to fetch profile', e);
-    } finally {
-      setLoading(false);
+  useEffect(() => {
+    if (isFocused) {
+      loadLocal();
     }
-  }, []); 
+  }, [isFocused, loadLocal]);
 
-  const updateProfile = useCallback(async () => {
-    if (!userId) {
-      Alert.alert('Not logged in', 'Please log in to update profile');
-      return;
-    }
-    try {
-      // Get stored access token from AsyncStorage and include Authorization header
-      const accessToken = await AsyncStorage.getItem('access_token');
-      if (!accessToken) {
-        Alert.alert('Authentication required', 'Please log in again');
-        return;
-      }
-
-      // Normalize payload: ensure hobbies, health_conditions, favorite_songs are arrays
-      const payload = {
-        ...profile,
-        hobbies: profile.hobbies ? [profile.hobbies] : [],
-        health_conditions: profile.health_conditions || [],
-        favorite_songs: profile.favorite_songs || [],
-        lifestyle: {
-          sleep: profile.lifestyle?.sleep ? Number(profile.lifestyle.sleep) : undefined,
-          exercise: profile.lifestyle?.exercise ? Number(profile.lifestyle.exercise) : undefined,
-          diet: profile.lifestyle?.diet || undefined,
-        },
-      };
-
-      console.log('Outgoing profile payload:', payload);
-
-      const res = await fetch(`http://10.0.2.2:8004/users/profile/${userId}`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${accessToken}`,
-        },
-        body: JSON.stringify(payload),
-      });
-
-      if (!res.ok) {
-        const err = await res.text();
-        Alert.alert('Error', err);
-        return;
-      }
-
-      Alert.alert('Success', 'Profile updated');
-    } catch (e) {
-      console.error(e);
-      Alert.alert('Error', 'Failed to update profile');
-    }
-  }, [userId, profile]); 
-
-  const pickImage = useCallback(async () => {
+  const pickImage = async () => {
     try {
       const result = await launchImageLibrary({ mediaType: 'photo', includeBase64: false });
       if (result.didCancel) return;
       if (result.assets && result.assets.length > 0) {
         const asset = result.assets[0];
-        uploadPhoto(asset);
+        const uri = asset.uri;
+        setPhotoUri(uri);
+        const key = userId ? `profile_photo_${userId}` : 'profile_photo';
+        await AsyncStorage.setItem(key, uri || '');
+        Alert.alert('Saved', 'Profile photo saved locally');
       }
     } catch (e) {
-      console.error('Image pick error', e);
+      console.warn('Image pick error', e);
+      Alert.alert('Error', 'Failed to pick image');
     }
-  }, []);
+  };
 
-  const uploadPhoto = useCallback(async (asset: any) => {
-    try {
-      const uri = asset.uri;
-      const filename = asset.fileName || 'photo.jpg';
-      const match = /\.(\w+)$/.exec(filename);
-      const type = match ? `image/${match[1]}` : 'image';
-
-      const form = new FormData();
-      // @ts-ignore
-      form.append('file', {
-        uri,
-        name: filename,
-        type,
-      });
-
-      if (!userId) { Alert.alert('Not logged in', 'Please log in to upload a photo'); return; }
-      const accessToken = await AsyncStorage.getItem('access_token');
-      const res = await fetch(`http://10.0.2.2:8004/users/profile/${userId}/upload-photo`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'multipart/form-data',
-          'Authorization': `Bearer ${accessToken}`,
-        },
-        body: form,
-      });
-
-      if (!res.ok) {
-        const err = await res.text();
-        Alert.alert('Upload failed', err);
-        return;
-      }
-
-      const data = await res.json();
-      setProfile(prev => ({ ...prev, profile_photo_url: data.url }));
-      Alert.alert('Uploaded', 'Profile photo updated');
-    } catch (e) {
-      console.error('Upload error', e);
-      Alert.alert('Error', 'Failed to upload photo');
-    }
-  }, [userId]);
-
-
-
-  // Ambitions (up to 3)
-  const addAmbition = useCallback(() => {
-    const ambition = newAmbition.trim();
-    if (!ambition) return;
-    setProfile(prev => {
-      const next = [...prev.ambitions];
-      if (next.includes(ambition)) return prev;
-      if (next.length >= 3) {
-        Alert.alert('Limit', 'You can add up to 3 ambitions');
-        return prev;
-      }
-      next.push(ambition);
-      return { ...prev, ambitions: next };
+  const toggleHobby = (h: string) => {
+    setHobbies(prev => {
+      if (prev.includes(h)) return prev.filter(x => x !== h);
+      if (prev.length >= 3) { Alert.alert('Limit', 'You can add up to 3 hobbies'); return prev; }
+      return [...prev, h];
     });
-    setNewAmbition('');
-  }, [newAmbition]);
+  };
 
-  const removeAmbition = useCallback((a: string) => {
-    setProfile(prev => ({ ...prev, ambitions: (prev.ambitions || []).filter((x: string) => x !== a) }));
-  }, []);
+  const addHobby = () => {
+    const v = newHobby.trim();
+    if (!v) return;
+    if (hobbies.includes(v)) { setNewHobby(''); return; }
+    if (hobbies.length >= 3) { Alert.alert('Limit', 'You can add up to 3 hobbies'); return; }
+    setHobbies(prev => [...prev, v]);
+    setNewHobby('');
+  };
 
-  // Favorite songs (up to 3 links)
-  const addSong = useCallback(() => {
-    const s = newSong.trim();
-    if (!s) return;
-    if (!s.startsWith('http')) {
-      Alert.alert('Invalid link', 'Please enter a valid URL (must start with http)');
-      return;
-    }
-    setProfile(prev => {
-      const next = [...prev.favorite_songs];
-      if (next.includes(s)) return prev;
-      if (next.length >= 3) {
-        Alert.alert('Limit', 'You can add up to 3 favorite songs');
-        return prev;
-      }
-      next.push(s);
-      return { ...prev, favorite_songs: next };
+  const toggleCondition = (c: string) => {
+    setHealthConditions(prev => {
+      if (prev.includes(c)) return prev.filter(x => x !== c);
+      if (prev.length >= 15) { Alert.alert('Limit', 'You can select up to 15 conditions'); return prev; }
+      return [...prev, c];
     });
-    setNewSong('');
-  }, [newSong]);
+  };
 
-  const removeSong = useCallback((s: string) => {
-    setProfile(prev => ({ ...prev, favorite_songs: (prev.favorite_songs || []).filter((x: string) => x !== s) }));
-  }, []);
+  const addCondition = () => {
+    const v = newCondition.trim();
+    if (!v) return;
+    if (healthConditions.includes(v)) { setNewCondition(''); return; }
+    if (healthConditions.length >= 15) { Alert.alert('Limit', 'You can select up to 15 conditions'); return; }
+    setHealthConditions(prev => [...prev, v]);
+    setNewCondition('');
+  };
 
-  return loading ? (
-    <ProfileSkeleton />
-  ) : (
-    <ScrollView 
-      style={styles.container} 
-      contentContainerStyle={styles.contentContainer}
-    >
-      <Text style={styles.header}>My Profile</Text>
+  const saveLocalProfile = async () => {
+    const key = userId ? `local_profile_${userId}` : 'local_profile';
+    const payload = { 
+      full_name: fullName, 
+      hobbies, 
+      gender, 
+      health_conditions: healthConditions, 
+      profile_photo_url: photoUri,
+      // New fields
+      pet_name: petName,
+      job_title: jobTitle,
+      top_company: topCompany,
+      family_members: familyMembers,
+      age: age,
+      weight: weight,
+      province: province,
+      city: city,
+      village: village,
+      sleep_hours: sleepHours,
+      exercise_time: exerciseTime,
+      sleep_latency: sleepLatency
+    };
+    await AsyncStorage.setItem(key, JSON.stringify(payload));
+    await AsyncStorage.setItem('user_name', fullName);
+    Alert.alert('Saved', 'Profile saved locally');
+  };
 
-      <TouchableOpacity style={styles.photoRow} onPress={pickImage}>
-        {profile.profile_photo_url ? (
-          <Image source={{ uri: profile.profile_photo_url }} style={styles.avatar} />
-        ) : (
-          <View style={[styles.avatar, styles.avatarPlaceholder]}>
-            <Text style={styles.avatarText}>Add Photo</Text>
+  const clearLocal = async () => {
+    Alert.alert('Clear local profile?', 'This will remove locally saved profile data. Continue?', [
+      { text: 'Cancel', style: 'cancel' },
+      { text: 'Clear', style: 'destructive', onPress: async () => {
+          const uid = userId;
+          if (uid) {
+            await AsyncStorage.removeItem(`local_profile_${uid}`);
+            await AsyncStorage.removeItem(`profile_photo_${uid}`);
+          } else {
+            await AsyncStorage.removeItem('local_profile');
+            await AsyncStorage.removeItem('profile_photo');
+          }
+          setFullName(''); setHobbies([]); setGender(null); setHealthConditions([]); setPhotoUri(undefined);
+          // Clear new fields
+          setPetName(''); setJobTitle(''); setTopCompany(''); setFamilyMembers(0);
+          setAge(undefined); setWeight(undefined); setProvince(''); setCity(''); setVillage('');
+          setSleepHours(undefined); setExerciseTime(''); setSleepLatency(undefined);
+          Alert.alert('Cleared', 'Local profile data removed');
+        }}
+    ]);
+  };
+
+  if (loading) return <View style={styles.center}><ActivityIndicator /></View>;
+
+  return (
+    <ScrollView style={styles.container} contentContainerStyle={styles.contentContainer}>
+      <Text style={styles.title}>Profile</Text>
+
+      {/* Photo & Name Section */}
+      <View style={styles.sectionCard}>
+        <View style={styles.photoSection}>
+          <View style={styles.photoWrapper}>
+            {photoUri ? (
+              <Image source={{ uri: photoUri }} style={styles.avatar} />
+            ) : (
+              <View style={[styles.avatar, styles.avatarPlaceholder]}>
+                <Text style={styles.avatarText}>Add Photo</Text>
+              </View>
+            )}
+            <TouchableOpacity style={styles.editBadge} onPress={pickImage}>
+              <Text style={styles.editBadgeText}>✎</Text>
+            </TouchableOpacity>
           </View>
-        )}
-        <Text style={styles.photoText}>Tap to change photo</Text>
-      </TouchableOpacity>
-
-      <Text style={styles.label}>Full Name</Text>
-      <TextInput style={styles.input} value={profile.full_name} onChangeText={(t) => setProfile({ ...profile, full_name: t })} />
-
-      <Text style={styles.label}>Job Title</Text>
-      <TextInput style={styles.input} value={profile.job_title} onChangeText={(t) => setProfile({ ...profile, job_title: t })} />
-
-      <Text style={styles.label}>Ambitions (up to 3)</Text>
-      <View style={styles.rowCenter}>
-        <TextInput placeholder="Add ambition" style={[styles.input, styles.rowInput]} value={newAmbition} onChangeText={setNewAmbition} />
-        <TouchableOpacity style={styles.addBtn} onPress={addAmbition}>
-          <Text style={styles.addBtnText}>Add</Text>
-        </TouchableOpacity>
-      </View>
-      <View style={styles.wrapRow}>
-        {(profile.ambitions || []).map((a: string) => (
-          <View key={a} style={styles.hobbyChip}>
-            <Text style={styles.chipText}>{a}</Text>
-            <TouchableOpacity onPress={() => removeAmbition(a)}><Text style={styles.removeText}>✕</Text></TouchableOpacity>
+          <View style={styles.nameSection}>
+            <Text style={styles.fieldLabel}>Full Name</Text>
+            <Text style={styles.nameText}>{fullName || 'Please log in again'}</Text>
           </View>
-        ))}
-      </View>
-
-      <Text style={styles.label}>Family Members</Text>
-      <TextInput style={styles.input} value={String(profile.family_members)} keyboardType="number-pad" onChangeText={(t) => setProfile({ ...profile, family_members: parseInt(t || '0', 10) || 0 })} />
-
-      <Text style={styles.label}>Hobbies (select one)</Text>
-      <View style={styles.pickerBg}>
-        <Picker selectedValue={profile.hobbies} onValueChange={(v: string) => setProfile({ ...profile, hobbies: v })}>
-          {HOBBIES.map(h => (
-            <Picker.Item key={h} label={h} value={h} />
-          ))}
-        </Picker>
-      </View>
-
-      <Text style={styles.label}>Marital Status</Text>
-      <View style={styles.rowWithGap}>
-        <TouchableOpacity onPress={() => setProfile({ ...profile, is_married: false })} style={[styles.smallBtn, !profile.is_married && styles.smallBtnActive]}>
-          <Text style={[styles.smallBtnText, !profile.is_married ? styles.smallBtnTextActive : styles.smallBtnTextInactive]}>Unmarried</Text>
-        </TouchableOpacity>
-        <TouchableOpacity onPress={() => setProfile({ ...profile, is_married: true })} style={[styles.smallBtn, profile.is_married && styles.smallBtnActive]}>
-          <Text style={[styles.smallBtnText, profile.is_married ? styles.smallBtnTextActive : styles.smallBtnTextInactive]}>Married</Text>
-        </TouchableOpacity>
-      </View>
-
-      <Text style={styles.label}>Relationship</Text>
-      <View style={styles.rowMarginBottom}>
-        <TouchableOpacity onPress={() => setProfile({ ...profile, relationship_status: 'single' })} style={[styles.smallBtn, profile.relationship_status === 'single' && styles.smallBtnActive]}>
-          <Text style={[styles.smallBtnText, profile.relationship_status === 'single' ? styles.smallBtnTextActive : styles.smallBtnTextInactive]}>Single</Text>
-        </TouchableOpacity>
-        <TouchableOpacity onPress={() => setProfile({ ...profile, relationship_status: 'in a relationship' })} style={[styles.smallBtn, profile.relationship_status === 'in a relationship' && styles.smallBtnActive]}>
-          <Text style={[styles.smallBtnText, profile.relationship_status === 'in a relationship' ? styles.smallBtnTextActive : styles.smallBtnTextInactive]}>In Relationship</Text>
-        </TouchableOpacity>
-        <TouchableOpacity onPress={() => setProfile({ ...profile, relationship_status: 'complicated' })} style={[styles.smallBtn, profile.relationship_status === 'complicated' && styles.smallBtnActive]}>
-          <Text style={[styles.smallBtnText, profile.relationship_status === 'complicated' ? styles.smallBtnTextActive : styles.smallBtnTextInactive]}>Complicated</Text>
-        </TouchableOpacity>
-        <TouchableOpacity onPress={() => setProfile({ ...profile, relationship_status: '' })} style={[styles.smallBtn, !profile.relationship_status && styles.smallBtnActive]}>
-          <Text style={[styles.smallBtnText, !profile.relationship_status ? styles.smallBtnTextActive : styles.smallBtnTextInactive]}>Clear</Text>
-        </TouchableOpacity>
-      </View>
-
-      <Text style={styles.label}>Health Conditions</Text>
-      <HealthSelection selected={profile.health_conditions} onSelectIssues={(issues: string[]) => setProfile({ ...profile, health_conditions: issues })} />
-
-      <Text style={styles.label}>Favorite Songs (up to 3)</Text>
-      <View style={styles.rowCenter}>
-        <TextInput placeholder="Add song URL" style={[styles.input, styles.rowInput]} value={newSong} onChangeText={setNewSong} />
-        <TouchableOpacity style={styles.addBtn} onPress={addSong}>
-          <Text style={styles.addBtnText}>Add</Text>
-        </TouchableOpacity>
-      </View>
-      <View style={styles.songList}>
-        {(profile.favorite_songs || []).map((s: string) => (
-          <View key={s} style={[styles.hobbyChip, styles.songRow]}>
-            <Text style={styles.songText}>{s}</Text>
-            <TouchableOpacity onPress={() => removeSong(s)}><Text style={styles.removeText}>✕</Text></TouchableOpacity>
-          </View>
-        ))}
-      </View>
-
-      <Text style={styles.label}>Lifestyle</Text>
-      <View style={[styles.rowCenter, styles.lifestyleRow]}> 
-        <View style={styles.lifestyleInputContainer}>
-          <Text style={styles.smallLabel}>Sleep (hrs)</Text>
-          <TextInput
-            style={styles.input}
-            keyboardType="numeric"
-            value={profile.lifestyle && String(profile.lifestyle.sleep !== undefined ? profile.lifestyle.sleep : '')}
-            onChangeText={(t) => setProfile({ ...profile, lifestyle: { ...(profile.lifestyle || {}), sleep: t === '' ? undefined : Number(t) } })}
-          />
-        </View>
-
-        <View style={styles.lifestyleInputContainer2}>
-          <Text style={styles.smallLabel}>Exercise (min)</Text>
-          <TextInput
-            style={styles.input}
-            keyboardType="numeric"
-            value={profile.lifestyle && String(profile.lifestyle.exercise !== undefined ? profile.lifestyle.exercise : '')}
-            onChangeText={(t) => setProfile({ ...profile, lifestyle: { ...(profile.lifestyle || {}), exercise: t === '' ? undefined : Number(t) } })}
-          />
         </View>
       </View>
 
-      <Text style={styles.label}>Diet</Text>
-      <View style={styles.pickerBg}>
-        <Picker
-          selectedValue={profile.lifestyle?.diet || 'good'}
-          onValueChange={(v) => setProfile({ ...profile, lifestyle: { ...(profile.lifestyle || {}), diet: v } })}
-        >
-          <Picker.Item label="Good" value="good" />
-          <Picker.Item label="Okay" value="okay" />
-          <Picker.Item label="Poor" value="poor" />
-        </Picker>
+      {/* Gender Section */}
+      <View style={styles.sectionCard}>
+        <Text style={styles.sectionTitle}>Gender</Text>
+        <View style={styles.rowWithGap}>
+          <TouchableOpacity onPress={() => setGender('male')} style={[styles.smallBtn, gender === 'male' && styles.smallBtnActive]}><Text style={gender === 'male' ? styles.smallBtnTextActive : styles.smallBtnText}>Male</Text></TouchableOpacity>
+          <TouchableOpacity onPress={() => setGender('female')} style={[styles.smallBtn, gender === 'female' && styles.smallBtnActive]}><Text style={gender === 'female' ? styles.smallBtnTextActive : styles.smallBtnText}>Female</Text></TouchableOpacity>
+          <TouchableOpacity onPress={() => setGender('other')} style={[styles.smallBtn, gender === 'other' && styles.smallBtnActive]}><Text style={gender === 'other' ? styles.smallBtnTextActive : styles.smallBtnText}>Other</Text></TouchableOpacity>
+        </View>
       </View>
 
-      <Text style={styles.label}>Province</Text>
-      <TextInput style={styles.input} value={profile.province} onChangeText={(t) => setProfile({ ...profile, province: t })} />
+      {/* Personal Info Section */}
+      <View style={styles.sectionCard}>
+        <Text style={styles.sectionTitle}>Personal Information</Text>
+        <Text style={styles.fieldLabel}>Pet Name</Text>
+        <TextInput style={styles.textInput} value={petName} onChangeText={setPetName} placeholder="Enter pet name" />
+        
+        <View style={styles.rowWithGap}>
+          <View style={styles.halfField}>
+            <Text style={styles.fieldLabel}>Age</Text>
+            <TextInput style={styles.textInput} value={age ? String(age) : ''} onChangeText={(t) => setAge(t ? Number(t) : undefined)} placeholder="25" keyboardType="number-pad" />
+          </View>
+          <View style={styles.halfField}>
+            <Text style={styles.fieldLabel}>Weight (kg)</Text>
+            <TextInput style={styles.textInput} value={weight ? String(weight) : ''} onChangeText={(t) => setWeight(t ? Number(t) : undefined)} placeholder="70" keyboardType="numeric" />
+          </View>
+        </View>
+      </View>
 
-      <Text style={styles.label}>Village</Text>
-      <TextInput style={styles.input} value={profile.village} onChangeText={(t) => setProfile({ ...profile, village: t })} />
+      {/* Employment Section */}
+      <View style={styles.sectionCard}>
+        <Text style={styles.sectionTitle}>Employment</Text>
+        <Text style={styles.fieldLabel}>Job Title</Text>
+        <TextInput style={styles.textInput} value={jobTitle} onChangeText={setJobTitle} placeholder="Enter job title" />
+        
+        <Text style={styles.fieldLabel}>Top Company</Text>
+        <TextInput style={styles.textInput} value={topCompany} onChangeText={setTopCompany} placeholder="Enter company name" />
+      </View>
 
-      <TouchableOpacity style={styles.saveBtn} onPress={updateProfile}>
-        <Text style={styles.saveBtnText}>{loading ? 'Loading...' : 'Save Profile'}</Text>
-      </TouchableOpacity>
+      {/* Family Section */}
+      <View style={styles.sectionCard}>
+        <Text style={styles.sectionTitle}>Family</Text>
+        <Text style={styles.fieldLabel}>Family Members</Text>
+        <TextInput style={styles.textInput} value={String(familyMembers)} onChangeText={(t) => setFamilyMembers(Number(t) || 0)} placeholder="4" keyboardType="number-pad" />
+      </View>
 
+      {/* Location Section */}
+      <View style={styles.sectionCard}>
+        <Text style={styles.sectionTitle}>Location</Text>
+        <Text style={styles.fieldLabel}>Province</Text>
+        <TextInput style={styles.textInput} value={province} onChangeText={setProvince} placeholder="Enter province" />
+        
+        <Text style={styles.fieldLabel}>City</Text>
+        <TextInput style={styles.textInput} value={city} onChangeText={setCity} placeholder="Enter city" />
+        
+        <Text style={styles.fieldLabel}>Village</Text>
+        <TextInput style={styles.textInput} value={village} onChangeText={setVillage} placeholder="Enter village" />
+      </View>
 
+      {/* Lifestyle Section */}
+      <View style={styles.sectionCard}>
+        <Text style={styles.sectionTitle}>Lifestyle & Health</Text>
+        <View style={styles.rowWithGap}>
+          <View style={styles.halfField}>
+            <Text style={styles.fieldLabel}>Sleep Hours</Text>
+            <TextInput style={styles.textInput} value={sleepHours ? String(sleepHours) : ''} onChangeText={(t) => setSleepHours(t ? Number(t) : undefined)} placeholder="8" keyboardType="numeric" />
+          </View>
+          <View style={styles.halfField}>
+            <Text style={styles.fieldLabel}>Time to Fall Asleep (min)</Text>
+            <TextInput style={styles.textInput} value={sleepLatency ? String(sleepLatency) : ''} onChangeText={(t) => setSleepLatency(t ? Number(t) : undefined)} placeholder="15" keyboardType="number-pad" />
+          </View>
+        </View>
+        
+        <Text style={styles.fieldLabel}>Exercise Time</Text>
+        <TextInput style={styles.textInput} value={exerciseTime} onChangeText={setExerciseTime} placeholder="Morning / 18:00 / etc" />
+      </View>
+
+      {/* Hobbies Section */}
+      <View style={styles.sectionCard}>
+        <View style={styles.sectionHeader}>
+          <Text style={styles.sectionTitle}>Hobbies</Text>
+          <Text style={styles.counter}>{hobbies.length}/3</Text>
+        </View>
+        <View style={styles.wrapRow}>
+          {HOBBIES_PRESET.map(h => {
+            const active = hobbies.includes(h);
+            return (
+              <TouchableOpacity key={h} onPress={() => toggleHobby(h)} style={[styles.hobbyChip, active && styles.hobbyChipActive]}>
+                <Text style={active ? styles.chipTextActive : styles.chipText}>{h}</Text>
+              </TouchableOpacity>
+            );
+          })}
+        </View>
+        <View style={styles.inputRow}>
+          <TextInput placeholder="Add custom hobby" style={styles.input} value={newHobby} onChangeText={setNewHobby} />
+          <TouchableOpacity style={styles.addBtn} onPress={addHobby}><Text style={styles.addBtnText}>+</Text></TouchableOpacity>
+        </View>
+      </View>
+
+      {/* Health Conditions Section */}
+      <View style={styles.sectionCard}>
+        <View style={styles.sectionHeader}>
+          <Text style={styles.sectionTitle}>Health Conditions</Text>
+          <Text style={styles.counter}>{healthConditions.length}/15</Text>
+        </View>
+        <View style={styles.wrapRow}>
+          {HEALTH_PRESET.map(c => {
+            const act = healthConditions.includes(c);
+            return (
+              <TouchableOpacity key={c} onPress={() => toggleCondition(c)} style={[styles.condChip, act && styles.condChipActive]}>
+                <Text style={act ? styles.chipTextActive : styles.chipText}>{c}</Text>
+              </TouchableOpacity>
+            );
+          })}
+        </View>
+        <View style={styles.inputRow}>
+          <TextInput placeholder="Add custom condition" style={styles.input} value={newCondition} onChangeText={setNewCondition} />
+          <TouchableOpacity style={styles.addBtn} onPress={addCondition}><Text style={styles.addBtnText}>+</Text></TouchableOpacity>
+        </View>
+      </View>
+
+      {/* Actions Section */}
+      <View style={styles.sectionCard}>
+        <Text style={styles.sectionTitle}>Profile Actions</Text>
+        <TouchableOpacity style={styles.actionBtn} onPress={saveLocalProfile}>
+          <Text style={styles.actionBtnText}>💾 Save Profile Locally</Text>
+        </TouchableOpacity>
+        <TouchableOpacity style={[styles.actionBtn, styles.clearBtn]} onPress={clearLocal}>
+          <Text style={styles.clearBtnText}>🗑️ Clear Local Data</Text>
+        </TouchableOpacity>
+      </View>
     </ScrollView>
   );
-});
+};
 
 const styles = StyleSheet.create({
-  container: { padding: 20, backgroundColor: '#f5f5f5' },
-  contentContainer: { paddingBottom: 60 },
-  header: { fontSize: 24, fontWeight: 'bold', marginBottom: 20, textAlign: 'center' },
-  label: { marginTop: 12, marginBottom: 6 },
-  smallLabel: { fontSize: 12, color: '#666', marginBottom: 4 },
-  input: { borderWidth: 1, borderColor: '#e0e0e0', borderRadius: 8, padding: 10, backgroundColor: '#fff' },
-  avatar: { width: 96, height: 96, borderRadius: 48 },
-  avatarPlaceholder: { backgroundColor: '#007AFF', alignItems: 'center', justifyContent: 'center' },
-  avatarText: { color: '#fff', fontWeight: '600' },
-  photoRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 18 },
-  photoText: { marginLeft: 12 },
-  rowCenter: { flexDirection: 'row', alignItems: 'center' },
-  rowWithGap: { flexDirection: 'row', alignItems: 'center' },
-  rowMarginBottom: { flexDirection: 'row', marginBottom: 8 },
-  rowInput: { flex: 1, marginRight: 8 },
-  wrapRow: { flexDirection: 'row', flexWrap: 'wrap', marginTop: 8 },
-  hobbyChip: { flexDirection: 'row', alignItems: 'center', padding: 8, backgroundColor: '#fff', borderRadius: 16, marginRight: 8, marginBottom: 8 },
-  chipText: { color: '#333' },
-  removeText: { marginLeft: 8 },
-  smallBtn: { padding: 8, borderRadius: 8, borderWidth: 1, borderColor: '#ddd', marginRight: 8 },
-  smallBtnActive: { backgroundColor: '#007AFF', borderColor: '#007AFF' },
-  smallBtnText: { fontWeight: '600' },
-  smallBtnTextActive: { color: '#fff' },
-  smallBtnTextInactive: { color: '#333' },
-  saveBtn: { marginTop: 20, backgroundColor: '#007AFF', padding: 14, borderRadius: 8, alignItems: 'center' },
-  saveBtnText: { color: '#fff', fontWeight: 'bold' },
-  addBtn: { paddingHorizontal: 12, paddingVertical: 10, borderRadius: 8, borderWidth: 1, borderColor: '#007AFF', backgroundColor: '#fff', alignItems: 'center', justifyContent: 'center' },
-  addBtnText: { color: '#007AFF' },
-  pickerBg: { backgroundColor: '#fff', borderRadius: 8, marginTop: 5, borderWidth: 1, borderColor: '#ddd' },
-  songList: { marginTop: 8 },
-  songRow: { justifyContent: 'space-between', width: '100%' },
-  songText: { color: '#333', flex: 1 },
-  lifestyleRow: { marginBottom: 8 },
-  lifestyleInputContainer: { flex: 1, marginRight: 8 },
-  lifestyleInputContainer2: { flex: 1 },
+  container: { flex: 1, backgroundColor: '#f5f7fa' },
+  contentContainer: { padding: 16, paddingBottom: 32 },
+  center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+  title: { fontSize: 24, fontWeight: '700', marginBottom: 16, color: '#1a1a1a' },
+  
+  // Section Card
+  sectionCard: {
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  sectionTitle: { fontSize: 16, fontWeight: '600', color: '#1a1a1a', marginBottom: 12 },
+  sectionHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 },
+  counter: { fontSize: 14, fontWeight: '500', color: '#FF0000' },
+  
+  // Photo Section
+  photoSection: { flexDirection: 'row', alignItems: 'center', gap: 16 },
+  photoWrapper: { position: 'relative' },
+  avatar: { width: 80, height: 80, borderRadius: 40, backgroundColor: '#e0e7ff' },
+  avatarPlaceholder: { justifyContent: 'center', alignItems: 'center' },
+  avatarText: { color: '#666', fontSize: 12 },
+  editBadge: {
+    position: 'absolute',
+    bottom: 0,
+    right: 0,
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: '#FF0000',
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 2,
+    borderColor: '#fff',
+  },
+  editBadgeText: { color: '#fff', fontSize: 14, fontWeight: '600' },
+  nameSection: { flex: 1 },
+  fieldLabel: { fontSize: 12, color: '#666', marginBottom: 6 },
+  nameText: { fontSize: 18, fontWeight: '600', color: '#1a1a1a' },
+  
+  // Gender Buttons
+  rowWithGap: { flexDirection: 'row', gap: 8 },
+  smallBtn: { flex: 1, padding: 10, borderRadius: 8, borderWidth: 1, borderColor: '#e0e7ff', backgroundColor: '#fff', alignItems: 'center' },
+  smallBtnActive: { backgroundColor: '#FF0000', borderColor: '#FF0000' },
+  smallBtnText: { fontSize: 14, color: '#1a1a1a' },
+  smallBtnTextActive: { fontSize: 14, color: '#fff', fontWeight: '600' },
+  
+  // Chips
+  wrapRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 12 },
+  hobbyChip: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 16, borderWidth: 1, borderColor: '#e0e7ff', backgroundColor: '#fff' },
+  hobbyChipActive: { backgroundColor: '#FF0000', borderColor: '#FF0000' },
+  condChip: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 16, borderWidth: 1, borderColor: '#e0e7ff', backgroundColor: '#fff' },
+  condChipActive: { backgroundColor: '#FF0000', borderColor: '#FF0000' },
+  chipText: { fontSize: 13, color: '#1a1a1a' },
+  chipTextActive: { fontSize: 13, color: '#fff', fontWeight: '600' },
+  
+  // Input Row
+  inputRow: { flexDirection: 'row', gap: 8, alignItems: 'center' },
+  input: { flex: 1, borderWidth: 1, borderColor: '#e0e7ff', backgroundColor: '#f8f9ff', padding: 10, borderRadius: 8, fontSize: 14 },
+  addBtn: { width: 40, height: 40, borderRadius: 8, backgroundColor: '#FF0000', justifyContent: 'center', alignItems: 'center' },
+  addBtnText: { color: '#fff', fontSize: 20, fontWeight: '600' },
+  
+  // New text input styles
+  textInput: { borderWidth: 1, borderColor: '#e6eef6', borderRadius: 8, padding: 12, backgroundColor: '#fff', marginTop: 4, marginBottom: 12 },
+  halfField: { flex: 1, marginHorizontal: 4 },
+  
+  // Action Buttons
+  actionBtn: { backgroundColor: '#FF0000', padding: 14, borderRadius: 8, marginBottom: 8, alignItems: 'center' },
+  clearBtn: { backgroundColor: '#fff', borderWidth: 1, borderColor: '#FF6B6B' },
+  actionBtnText: { color: '#fff', fontSize: 15, fontWeight: '600' },
+  clearBtnText: { color: '#FF6B6B', fontSize: 15, fontWeight: '600' },
 });
 
 export default ProfileScreen;
