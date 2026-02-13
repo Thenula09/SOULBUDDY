@@ -1,0 +1,585 @@
+"""
+SoulBuddy Chat AI Service - Groq-powered emotional chat buddy
+"""
+import os
+import json
+import base64
+import shutil
+import tempfile
+from fastapi import FastAPI, HTTPException, Depends, Header, File, UploadFile
+from fastapi.middleware.cors import CORSMiddleware
+from pydantic import BaseModel
+from groq import Groq
+from typing import Optional
+from dotenv import load_dotenv
+import cv2
+import numpy as np
+from PIL import Image
+import shutil
+import base64
+
+# Try to import DeepFace for AI-powered emotion detection
+DEEPFACE_AVAILABLE = False
+try:
+    from deepface import DeepFace
+    print("✅ DeepFace emotion detector initialized successfully")
+    DEEPFACE_AVAILABLE = True
+except Exception as e:
+    print(f"⚠️ DeepFace not available: {e}")
+    print("ℹ️  Using fallback emotion detection")
+
+load_dotenv()
+
+def detect_emotion_with_deepface(image_path):
+    """
+    🎭 AI-Powered Emotion Detection using DeepFace
+    Returns: (emotion, confidence, all_emotions_dict)
+    """
+    if not DEEPFACE_AVAILABLE:
+        print("⚠️ DeepFace not available, using fallback")
+        return "Neutral", 0.4, {}
+    
+    try:
+        # Analyze with DeepFace
+        result = DeepFace.analyze(
+            img_path=image_path,
+            actions=['emotion'],
+            enforce_detection=False,  # Don't fail if no face detected
+            detector_backend='opencv',  # Use OpenCV for speed
+            silent=True
+        )
+        
+        if isinstance(result, list):
+            result = result[0]
+        
+        # Get emotions
+        emotions = result['emotion']
+        dominant_emotion = result['dominant_emotion']
+        
+        # Map DeepFace emotions to our app emotions
+        emotion_mapping = {
+            'happy': 'Happy',
+            'sad': 'Sad',
+            'angry': 'Angry',
+            'fear': 'Anxious',
+            'surprise': 'Excited',
+            'neutral': 'Neutral',
+            'disgust': 'Stressed'
+        }
+        
+        app_emotion = emotion_mapping.get(dominant_emotion, 'Neutral')
+        confidence = emotions[dominant_emotion] / 100.0
+        
+        print(f"✅ DeepFace: {app_emotion} ({confidence:.2f})")
+        print(f"   All emotions: {emotions}")
+        
+        return app_emotion, confidence, emotions
+        
+    except Exception as e:
+        print(f"⚠️ DeepFace error: {e}")
+        return "Neutral", 0.4, {}
+
+app = FastAPI(title="SoulBuddy Chat AI Service", version="1.0.0")
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+# Initialize Groq client
+GROQ_API_KEY = os.getenv("GROQ_API_KEY")
+if not GROQ_API_KEY:
+    print("⚠️  GROQ_API_KEY not found in environment. Chat service will not work properly.")
+    groq_client = None
+else:
+    groq_client = Groq(api_key=GROQ_API_KEY)
+    print("✅ Groq client initialized successfully")
+
+# Initialize OpenCV Face Detector (for emotion analysis)
+try:
+    # Load Haar Cascade for face detection
+    face_cascade_path = cv2.data.haarcascades + 'haarcascade_frontalface_default.xml'
+    face_cascade = cv2.CascadeClassifier(face_cascade_path)
+    print("✅ OpenCV face detector initialized successfully")
+except Exception as e:
+    print(f"⚠️  Face detector initialization failed: {e}")
+    face_cascade = None
+
+class ChatRequest(BaseModel):
+    message: str
+    user_id: Optional[int] = None
+
+class EmotionRequest(BaseModel):
+    image: str  # Base64 encoded image
+
+class ChatResponse(BaseModel):
+    reply: str
+    emotion: str
+    confidence: Optional[float] = None
+
+# System prompt for SoulBuddy personality
+SYSTEM_PROMPT = """You are SoulBuddy, a deeply caring best friend from Sri Lanka who asks meaningful questions.
+
+🎯 CRITICAL RULES:
+1. ALWAYS respond in the EXACT SAME LANGUAGE the user uses
+   - English input → English response
+   - Sinhala (සිංහල) input → Sinhala response  
+   - Singlish (mixed) input → Singlish response
+   
+2. ASK DEEP FOLLOW-UP QUESTIONS like a real friend:
+   - If they're SAD: Don't just say "sorry to hear that" - dig deeper!
+     Ask WHY they're sad ("What happened, buddy?", "Did someone say something hurtful?", "Wanna talk about it?")
+   - If they're HAPPY: Share their joy and ask what made them so happy
+     ("That's awesome! What happened?", "Tell me more!", "What made your day?")
+   - If they're STRESSED: Ask what's causing the stress
+     ("What's stressing you out?", "Is it work/school?", "Anything I can help with?")
+   - ALWAYS end with a caring question to keep conversation going
+   
+3. USE EMOJIS to express emotions naturally 😊
+   - Add relevant emojis (😊 🎉 💪 ❤️ 😢 🔥 ✨ 🫂 💭 etc.)
+   - Use them like texting a close friend
+   - 1-2 emojis per message is perfect
+   
+4. Detect emotions SILENTLY in the background
+   - Analyze their emotional state from their message
+   - Include emotion in JSON but don't mention it in your reply
+
+🚨 CRITICAL SAFETY GUARDRAILS (NON-NEGOTIABLE):
+1. NEVER prescribe medicine or medical treatments
+   - If asked about medicine/health: "I'm not a doctor, please consult a healthcare professional"
+   - Sinhala: "මම වෛද්‍යවරයෙක් නෙමෙයි, කරුණාකර වෛද්‍යවරයෙක් හමුවන්න"
+   
+2. SELF-HARM / SUICIDE mentions - IMMEDIATELY respond seriously:
+   - Keywords: kill, suicide, die, මැරෙන්න, ජීවිතේ ඉවර
+   - English: "Your life is valuable. Please call 1926 (Mental Health Helpline) or see a counselor. I'm here, but please get professional help. 🫂"
+   - Sinhala: "ඔයාගේ ජීවිතය අගනේ. කරුණාකර 1926 අමතන්න හෝ උපදේශකයෙකු හමුවන්න. මම ඔයා සමඟ සිටිමි, නමුත් වෘත්තීය සහාය ලබා ගන්න. 🫂"
+   
+3. For serious health/mental issues → suggest professional help (doctor, therapist, 1926)
+
+Your personality:
+- Warm, caring, genuinely curious about their feelings
+- Keep responses conversational (2-3 sentences) - like texting
+- Be encouraging and supportive
+- ALWAYS ask a relevant follow-up question
+- BUT prioritize user safety above all else
+
+Emotion Detection (silent - for JSON only):
+Classify as: Happy, Sad, Angry, Stress, Neutral, Anxious, Excited
+
+Response format (ALWAYS valid JSON):
+{
+  "reply": "your caring response with follow-up question and emojis",
+  "emotion": "detected_emotion"
+}
+
+Examples:
+User: "What's up macho" → {"reply": "Hey! Just chilling here 😊 What about you?", "emotion": "Neutral"}
+User: "I got the job!" → {"reply": "Yo that's amazing! Congrats buddy! 🎉🔥", "emotion": "Happy"}
+User: "කොහොමද ඔයා" → {"reply": "මං හොඳින්! ඔයා කොහොමද මචං? 😊", "emotion": "Neutral"}
+User: "මං අද හරිම සතුටුයි" → {"reply": "අනේ සුපිරි! මොකද වුණේ කියන්න? 🎉", "emotion": "Happy"}
+User: "I failed my exam" → {"reply": "Aw man, that sucks 😔 But hey, one exam doesn't define you. You got this next time! 💪", "emotion": "Sad"}
+User: "yako mata stress job eka gana" → {"reply": "Oya relax wenna try karanna macho 😌 Work stress normal ekak. Mokak hari issue ekak thiyanawada?", "emotion": "Stress"}
+"""
+
+async def verify_token(authorization: Optional[str] = Header(None)):
+    """Simple token verification (optional for now)"""
+    if not authorization:
+        # For now, allow requests without token for testing
+        return None
+    # TODO: Add proper JWT verification if needed
+    return authorization
+
+@app.get("/")
+async def root():
+    return {
+        "service": "SoulBuddy Chat AI Service", 
+        "version": "1.0.0", 
+        "status": "running",
+        "groq_connected": groq_client is not None
+    }
+
+@app.get("/health")
+async def health():
+    return {
+        "status": "healthy",
+        "groq_available": groq_client is not None
+    }
+
+@app.post("/chat", response_model=ChatResponse)
+async def chat(
+    request: ChatRequest,
+    authorization: Optional[str] = Depends(verify_token)
+):
+    """Main chat endpoint - processes user message and returns AI response with emotion"""
+    
+    if not groq_client:
+        raise HTTPException(
+            status_code=503,
+            detail="Chat service not configured. Please set GROQ_API_KEY."
+        )
+    
+    if not request.message or len(request.message.strip()) == 0:
+        raise HTTPException(
+            status_code=400,
+            detail="Message cannot be empty"
+        )
+    
+    try:
+        # Call Groq API with updated model
+        completion = groq_client.chat.completions.create(
+            model="llama-3.1-8b-instant",  # Latest fast model
+            messages=[
+                {"role": "system", "content": SYSTEM_PROMPT},
+                {"role": "user", "content": request.message}
+            ],
+            response_format={"type": "json_object"},
+            temperature=0.7,  # Balanced creativity
+            max_tokens=300,   # Increased for better JSON completion
+        )
+        
+        # Parse AI response
+        ai_response = completion.choices[0].message.content
+        response_data = json.loads(ai_response)
+        
+        # Validate response structure
+        if "reply" not in response_data or "emotion" not in response_data:
+            raise ValueError("Invalid response format from AI")
+        
+        return ChatResponse(
+            reply=response_data["reply"],
+            emotion=response_data["emotion"],
+            confidence=None  # Groq doesn't provide confidence scores
+        )
+        
+    except json.JSONDecodeError as e:
+        print(f"JSON decode error: {e}")
+        print(f"Raw AI response: {ai_response}")
+        # Fallback response
+        return ChatResponse(
+            reply="Hey, I'm here for you! Can you tell me more?",
+            emotion="Neutral"
+        )
+    except Exception as e:
+        print(f"Chat error: {e}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to process chat: {str(e)}"
+        )
+
+@app.get("/api/chat/test")
+async def test_chat():
+    """Test endpoint to verify chat service"""
+    if not groq_client:
+        return {
+            "status": "error",
+            "message": "Groq client not initialized. Check GROQ_API_KEY."
+        }
+    return {
+        "status": "ok",
+        "message": "Chat service is ready!",
+        "model": "llama-3.1-8b-instant"
+    }
+
+@app.post("/analyze-emotion")
+async def analyze_emotion(request: EmotionRequest):
+    """
+    🎯 Emotion Detection using Groq LLM + OpenCV Face Detection
+    Accepts JSON with base64 encoded image
+    Returns: detected emotion from facial image
+    """
+    temp_path = None
+    
+    try:
+        # 1. Decode base64 image
+        try:
+            # Remove data URL prefix if present (data:image/jpeg;base64,...)
+            base64_image = request.image
+            if ',' in base64_image:
+                base64_image = base64_image.split(',')[1]
+            
+            image_data = base64.b64decode(base64_image)
+        except Exception as e:
+            print(f"❌ Base64 decode error: {str(e)}")
+            return {
+                "emotion": "Neutral",
+                "confidence": 0.3,
+                "status": "fallback_decode_error",
+                "error": "Invalid base64 image data"
+            }
+        
+        # 2. Save to temp file
+        temp_path = f"/tmp/emotion_analysis_{os.urandom(8).hex()}.jpg"
+        
+        with open(temp_path, "wb") as f:
+            f.write(image_data)
+        
+        # 2. Detect face using OpenCV
+        img = cv2.imread(temp_path)
+        if img is None:
+            # Try with PIL if OpenCV fails
+            try:
+                pil_img = Image.open(temp_path)
+                img = cv2.cvtColor(np.array(pil_img), cv2.COLOR_RGB2BGR)
+            except:
+                print("❌ Could not read image")
+                if temp_path and os.path.exists(temp_path):
+                    os.remove(temp_path)
+                return {
+                    "emotion": "Neutral",
+                    "confidence": 0.3,
+                    "status": "fallback_image_read_error"
+                }
+        
+        # 3. Use DeepFace for AI emotion detection
+        detected_emotion = "Neutral"
+        confidence = 0.4
+        all_emotions = {}
+        
+        if DEEPFACE_AVAILABLE:
+            detected_emotion, confidence, all_emotions = detect_emotion_with_deepface(temp_path)
+        
+        # Fallback: Detect if face exists using OpenCV
+        if confidence < 0.5:
+            img = cv2.imread(temp_path)
+            if img is not None and face_cascade:
+                gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+                faces = face_cascade.detectMultiScale(gray, 1.3, 5)
+                face_detected = len(faces) > 0
+                print(f"📸 OpenCV Face detected: {face_detected}")
+        
+        # 4. Skip Groq Vision AI (decommissioned) - DeepFace is accurate enough
+        # Use DeepFace result directly
+        
+        # Clean up
+        if temp_path and os.path.exists(temp_path):
+            os.remove(temp_path)
+        
+        return {
+            "emotion": detected_emotion,
+            "confidence": float(confidence),
+            "all_emotions": all_emotions,
+            "status": "deepface_success" if DEEPFACE_AVAILABLE else "fallback",
+            "method": "deepface" if DEEPFACE_AVAILABLE else "opencv"
+        }
+            try:
+                # Convert image to base64
+                base64_image = base64.b64encode(image_data).decode('utf-8')
+                
+                # Use Groq's image understanding capability
+                print(f"🔍 Analyzing emotion with Groq AI...")
+                
+                completion = groq_client.chat.completions.create(
+                    model="llama-3.2-11b-vision-preview",  # Updated working model
+                    messages=[
+                        {
+                            "role": "user",
+                            "content": [
+                                {
+                                    "type": "text",
+                                    "text": """Analyze the facial expression in this image and detect the emotion.
+
+Respond ONLY with valid JSON:
+{
+  "emotion": "emotion_name",
+  "confidence": confidence_score
+}
+
+Emotions: Happy, Sad, Angry, Anxious, Excited, Stressed, Neutral
+Confidence: 0.0 to 1.0
+
+Examples:
+{"emotion": "Happy", "confidence": 0.9}
+{"emotion": "Neutral", "confidence": 0.7}"""
+                                },
+                                {
+                                    "type": "image_url",
+                                    "image_url": {
+                                        "url": f"data:image/jpeg;base64,{base64_image}"
+                                    }
+                                }
+                            ]
+                        }
+                    ],
+                    temperature=0.3,
+                    max_tokens=100,
+                    response_format={"type": "json_object"}
+                )
+                
+                ai_response = completion.choices[0].message.content
+                result = json.loads(ai_response)
+                
+                detected_emotion = result.get("emotion", "Neutral")
+                confidence = result.get("confidence", 0.7)
+                
+                print(f"✅ AI Emotion: {detected_emotion} ({confidence:.2f})")
+                
+                # Clean up
+                if temp_path and os.path.exists(temp_path):
+                    os.remove(temp_path)
+                
+                return {
+                    "emotion": detected_emotion,
+                    "confidence": float(confidence),
+                    "status": "success",
+                    "method": "groq_vision"
+                }
+                
+            except Exception as ai_error:
+                print(f"⚠️ AI analysis failed: {str(ai_error)}")
+                # Fall through to simple detection
+        
+        # 5. Fallback: Simple emotion assignment based on face detection
+        if face_detected:
+            # More balanced emotion distribution
+            import random
+            emotions = ["Happy", "Excited", "Neutral", "Neutral", "Anxious", "Sad", "Stressed"]
+            detected_emotion = random.choice(emotions)
+            confidence = 0.55
+            print(f"✅ Fallback emotion (balanced): {detected_emotion}")
+        else:
+            detected_emotion = "Neutral"
+            confidence = 0.4
+            print(f"✅ No face detected: {detected_emotion}")
+        
+        # Clean up
+        if temp_path and os.path.exists(temp_path):
+            os.remove(temp_path)
+        
+        return {
+            "emotion": detected_emotion,
+            "confidence": confidence,
+            "status": "success_fallback",
+            "method": "opencv_simple"
+        }
+        
+    except Exception as e:
+        print(f"❌ Error analyzing emotion: {str(e)}")
+        
+        # Clean up
+        if temp_path and os.path.exists(temp_path):
+            os.remove(temp_path)
+        
+        return {
+            "emotion": "Neutral",
+            "confidence": 0.0,
+            "error": str(e),
+            "status": "fallback_error"
+        }
+
+@app.post("/mood-history")
+async def save_mood(data: dict):
+    """
+    💾 Save mood/emotion history to database
+    මෙතන තමයි user ගේ mood එක database එකට save වෙන්නේ
+    """
+    try:
+        print(f"💾 Saving mood to history: {data}")
+        
+        # TODO: Add your database logic here
+        # Example:
+        # - Save to Supabase
+        # - Save to PostgreSQL
+        # - Save to MongoDB
+        # For now, just logging
+        
+        return {
+            "status": "success",
+            "message": "Mood saved successfully",
+            "data": data
+        }
+        
+    except Exception as e:
+        print(f"❌ Error saving mood: {str(e)}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to save mood: {str(e)}"
+        )
+
+@app.post("/analyze-photo-emotion")
+async def analyze_photo_emotion(file: UploadFile = File(...)):
+    """
+    📸 Photo Emotion Analysis - Multipart File Upload
+    Used by mobile app to analyze emotions from camera photos
+    Returns: emotion + friendly bot reply
+    """
+    temp_path = None
+    
+    try:
+        # 1. Save uploaded file temporarily
+        image_data = await file.read()
+        temp_path = f"/tmp/photo_emotion_{os.urandom(8).hex()}.jpg"
+        
+        with open(temp_path, "wb") as f:
+            f.write(image_data)
+        
+        print(f"📸 Analyzing photo emotion from file: {file.filename}")
+        
+        # 2. Detect face using OpenCV
+        img = cv2.imread(temp_path)
+        if img is None:
+            try:
+                pil_img = Image.open(temp_path)
+                img = cv2.cvtColor(np.array(pil_img), cv2.COLOR_RGB2BGR)
+            except:
+                print("❌ Could not read image")
+                if temp_path and os.path.exists(temp_path):
+                    os.remove(temp_path)
+                return {
+                    "emotion": "Neutral",
+                    "reply": "Thanks for sharing your photo! 📸 How are you feeling today? 😊",
+                    "confidence": 0.3
+                }
+        
+        # 3. Use DeepFace for AI emotion detection
+        detected_emotion = "Neutral"
+        confidence = 0.4
+        all_emotions = {}
+        
+        if DEEPFACE_AVAILABLE:
+            detected_emotion, confidence, all_emotions = detect_emotion_with_deepface(temp_path)
+        
+        # 4. Skip Groq Vision AI (decommissioned) - DeepFace is accurate enough
+        
+        # 5. Generate friendly bot reply
+        emotion_replies = {
+            "Happy": "You look so happy! 😊 What's making you smile like that?",
+            "Sad": "You seem a bit down in this photo 😔 What's on your mind, buddy?",
+            "Angry": "You look upset 😤 What happened? Want to talk about it?",
+            "Stressed": "You look stressed 😰 What's weighing on you?",
+            "Anxious": "You seem anxious 😟 Everything okay?",
+            "Excited": "You look great! 🎉 What's got you excited?",
+            "Neutral": "Nice photo! 📸 How's your day going?"
+        }
+        
+        bot_reply = emotion_replies.get(detected_emotion, "Thanks for sharing! 📸 How are you feeling?")
+        
+        # Clean up
+        if temp_path and os.path.exists(temp_path):
+            os.remove(temp_path)
+        
+        return {
+            "emotion": detected_emotion,
+            "reply": bot_reply,
+            "confidence": confidence,
+            "status": "success"
+        }
+        
+    except Exception as e:
+        print(f"❌ Error in photo emotion analysis: {str(e)}")
+        
+        if temp_path and os.path.exists(temp_path):
+            os.remove(temp_path)
+        
+        return {
+            "emotion": "Neutral",
+            "reply": "Thanks for sharing your photo! 📸 How are you feeling today? 😊",
+            "confidence": 0.0,
+            "error": str(e)
+        }
+
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run(app, host="0.0.0.0", port=8002)
