@@ -22,18 +22,27 @@ class UserProfile(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     user_id = Column(Integer, ForeignKey("users.id"), unique=True, nullable=False)
-    hobbies = Column(String)
+    # store hobbies as JSON array so we can send/receive `list[str]` from API
+    hobbies = Column(JSON)
     family_members = Column(Integer, default=0)
     ambitions = Column(JSON)  # Array of strings
     job_title = Column(String)
+    top_company = Column(String)
+    pet_name = Column(String)
+    skills = Column(JSON)  # Array of strings
+    age = Column(Integer)
+    weight = Column(Integer)
     is_student = Column(Boolean, default=False)
     is_married = Column(Boolean, default=False)
     relationship_status = Column(String, default="single")
     health_conditions = Column(JSON)  # Array of strings
     favorite_songs = Column(JSON)  # Array of strings
     province = Column(String)
+    city = Column(String)
     village = Column(String)
     profile_photo_url = Column(String)
+    sleep_latency = Column(Integer)
+    exercise_time = Column(String)
     lifestyle = Column(JSON)  # Object with sleep, exercise, diet
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())

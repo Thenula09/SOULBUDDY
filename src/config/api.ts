@@ -52,9 +52,10 @@ export const API_ENDPOINTS = {
   LOGIN: `${API_CONFIG.USER_SERVICE}/api/auth/login`,
   CURRENT_USER: `${API_CONFIG.USER_SERVICE}/api/auth/me`,
   USER_BY_ID: (userId: number) => `${API_CONFIG.USER_SERVICE}/api/users/${userId}`,
+  PROFILE_ME: `${API_CONFIG.USER_SERVICE}/api/profile/me`,
+  PROFILE: (uid: string) => `${API_CONFIG.USER_SERVICE}/api/profile/${uid}`,
   
   // Old endpoints (keeping for backward compatibility)
-  PROFILE: (uid: string) => `${API_CONFIG.USER_SERVICE}/users/profile/${uid}`,
   MOOD: `${API_CONFIG.USER_SERVICE}/users/mood`,
   
   // Chat Service
