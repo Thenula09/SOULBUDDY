@@ -7,7 +7,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { launchCamera, launchImageLibrary, type CameraOptions } from 'react-native-image-picker';
 import { FlashList } from '@shopify/flash-list';
 import { ChatSkeleton } from '../../../components/ScreenSkeletons';
-import { saveMoodData } from '../../../services/moodService';
+import { saveMoodData, getTodayMoods } from '../../../services/moodService';
 
 interface Message {
   id: string;
@@ -22,6 +22,31 @@ const ChatScreen = () => {
   const [inputText, setInputText] = useState('');
   const [isTyping, setIsTyping] = useState(false);
   const [initialLoading, setInitialLoading] = useState(true);
+  const [todayMoods, setTodayMoods] = useState<any[]>([]);
+
+  // helper to format ISO timestamp into HH:MM
+  const formatTime = (ts?: string) => {
+    try {
+      if (!ts) return '';
+      const d = new Date(ts);
+      return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    } catch (e) {
+      return '';
+    }
+  };
+
+  const fetchTodayMoods = async () => {
+    try {
+      const list = await getTodayMoods();
+      setTodayMoods(Array.isArray(list) ? list : []);
+    } catch (err) {
+      console.log('Failed to fetch today moods', err);
+    }
+  };
+
+  // refresh today's moods on mount and whenever messages change (so new detected moods appear)
+  useEffect(() => { fetchTodayMoods(); }, [messages]);
+
   // Use permissive any for the ref to avoid type conflicts with FlashList's exported value vs type
   const flatListRef = useRef<any>(null);
 
@@ -325,7 +350,25 @@ const ChatScreen = () => {
         <TouchableOpacity onPress={handleRefresh} style={styles.headerRefreshButton}>
           <Text style={styles.headerRefreshText}>🔄 Refresh</Text>
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Chat with SoulBuddy</Text>
+
+        <View style={{ flex: 1, alignItems: 'center' }}>
+          <Text style={styles.headerTitle}>Chat with SoulBuddy</Text>
+
+          {todayMoods && todayMoods.length > 0 ? (
+            (() => {
+              const lastMood = todayMoods[todayMoods.length - 1];
+              return (
+                <View style={styles.moodChip}>
+                  <Text style={styles.moodText}>{lastMood.emotion || 'Unknown'}</Text>
+                  <Text style={styles.moodTime}>{formatTime(lastMood.created_at || lastMood.timestamp || lastMood.time)}</Text>
+                </View>
+              );
+            })()
+          ) : (
+            <Text style={styles.moodPlaceholder}>No mood logged today</Text>
+          )}
+        </View>
+
         <View style={styles.headerSpacer} />
       </View>
 
@@ -416,6 +459,18 @@ const styles = StyleSheet.create({
   headerSpacer: {
     width: 80,
   },
+  moodChip: {
+    marginTop: 6,
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0,122,255,0.08)',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+  },
+  moodText: { color: '#007AFF', fontWeight: '600', marginRight: 8 },
+  moodTime: { color: '#666', fontSize: 12 },
+  moodPlaceholder: { color: '#888', fontSize: 12, marginTop: 6 },
   bubble: {
     padding: 12,
     borderRadius: 18,

@@ -8,4 +8,4 @@ mkdir -p "$LOG_DIR"
 # Press Ctrl-C to stop following
 
 echo "Tailing logs: $LOG_DIR/*-service.log"
-tail -n +1 -F "$LOG_DIR/user-service.log" "$LOG_DIR/chat-ai-service.log"
+tail -n +1 -F "$LOG_DIR/user-service.log" "$LOG_DIR/chat-ai-service.log" "$LOG_DIR/lifestyle-service.log"

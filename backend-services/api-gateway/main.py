@@ -33,6 +33,7 @@ app.add_middleware(
 # Service URLs
 USER_SERVICE_URL = os.getenv("USER_SERVICE_URL", "http://localhost:8004")
 CHAT_SERVICE_URL = os.getenv("CHAT_SERVICE_URL", "http://localhost:8002")
+LIFESTYLE_SERVICE_URL = os.getenv("LIFESTYLE_SERVICE_URL", "http://localhost:8005")
 
 JWT_SECRET = os.getenv("JWT_SECRET_KEY", "your-secret-key-change-in-production")
 
@@ -88,7 +89,9 @@ async def auth_middleware(request: Request, call_next):
         "/openapi.json"
     ]
     
-    if request.url.path in public_paths or request.url.path.startswith("/docs") or request.url.path.startswith("/openapi"):
+    # Allow unauthenticated access to lifestyle endpoints during local development
+    # (gateway will forward these requests to the lifestyle service on :8005)
+    if request.url.path in public_paths or request.url.path.startswith("/docs") or request.url.path.startswith("/openapi") or request.url.path.startswith("/api/lifestyle"):
         return await call_next(request)
     
     # Check for authorization header
@@ -124,7 +127,8 @@ async def root():
         "status": "running",
         "services": {
             "user_service": USER_SERVICE_URL,
-            "chat_service": CHAT_SERVICE_URL
+            "chat_service": CHAT_SERVICE_URL,
+            "lifestyle_service": LIFESTYLE_SERVICE_URL
         }
     }
 
@@ -137,7 +141,8 @@ async def health_check():
     async with httpx.AsyncClient() as client:
         for name, url in [
             ("user_service", USER_SERVICE_URL),
-            ("chat_service", CHAT_SERVICE_URL)
+            ("chat_service", CHAT_SERVICE_URL),
+            ("lifestyle_service", LIFESTYLE_SERVICE_URL)
         ]:
             try:
                 response = await client.get(f"{url}/health", timeout=5.0)
@@ -200,6 +205,53 @@ async def get_chat_history(user_id: int, request: Request):
     """Forward get chat history to chat service"""
     return await forward_request(
         f"{CHAT_SERVICE_URL}/api/chat/history/{user_id}",
+        "GET",
+        dict(request.headers)
+    )
+
+# Lifestyle Service Routes
+@app.post("/api/lifestyle/log")
+async def log_lifestyle(request: Request):
+    body = await request.json()
+    return await forward_request(
+        f"{LIFESTYLE_SERVICE_URL}/api/lifestyle/log",
+        "POST",
+        dict(request.headers),
+        body
+    )
+
+@app.get("/api/lifestyle/{user_id}")
+async def get_lifestyle(user_id: int, request: Request):
+    return await forward_request(
+        f"{LIFESTYLE_SERVICE_URL}/api/lifestyle/{user_id}",
+        "GET",
+        dict(request.headers)
+    )
+
+@app.get("/api/lifestyle/moods/today/{user_id}")
+async def get_lifestyle_moods_today(user_id: int, request: Request):
+    return await forward_request(
+        f"{LIFESTYLE_SERVICE_URL}/api/lifestyle/moods/today/{user_id}",
+        "GET",
+        dict(request.headers)
+    )
+
+@app.get("/api/lifestyle/moods/last/{user_id}")
+async def get_lifestyle_moods_last(user_id: int, request: Request):
+    qs = str(request.query_params)
+    url = f"{LIFESTYLE_SERVICE_URL}/api/lifestyle/moods/last/{user_id}"
+    if qs:
+        url = url + "?" + qs
+    return await forward_request(
+        url,
+        "GET",
+        dict(request.headers)
+    )
+
+@app.get("/api/lifestyle/week/{user_id}")
+async def get_lifestyle_week(user_id: int, request: Request):
+    return await forward_request(
+        f"{LIFESTYLE_SERVICE_URL}/api/lifestyle/week/{user_id}",
         "GET",
         dict(request.headers)
     )
