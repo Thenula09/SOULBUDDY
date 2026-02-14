@@ -64,7 +64,7 @@ const ForgotPassword: React.FC<AuthScreenProps> = ({ navigation }) => {
               </TouchableOpacity>
 
               <TouchableOpacity onPress={() => navigation.navigate('ChooseRecovery')}>
-                <Text style={forgotStyles.linkText}>Use mobile  verification instead</Text>
+                <Text style={forgotStyles.linkText}>Use mobile verification instead</Text>
               </TouchableOpacity>
             </View>
 
