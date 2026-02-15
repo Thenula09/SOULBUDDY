@@ -18,7 +18,7 @@ import numpy as np
 from PIL import Image
 import shutil
 import base64
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 import requests
 import uuid
 import asyncio
@@ -41,8 +41,10 @@ SUPABASE_KEY = os.getenv("SUPABASE_KEY", "")
 # URL for the User service (used to proxy mood endpoints when needed)
 USER_SERVICE_URL = os.getenv("USER_SERVICE_URL", "http://localhost:8004")
 
-def save_mood_to_database(user_id: int, emotion: str, confidence: float, source: str = "photo"):
-    """Save mood data to Supabase database"""
+def save_mood_to_database(user_id: int, emotion: str, confidence: float, source: str = "photo", 
+                          ai_response: str = None, all_emotions: dict = None, face_detected: bool = None,
+                          color_suggestions: list = None, mood_trend: str = None):
+    """Save comprehensive mood data to Supabase database"""
     if not SUPABASE_URL or not SUPABASE_KEY:
         print("⚠️ Supabase credentials not configured")
         return False
@@ -54,13 +56,33 @@ def save_mood_to_database(user_id: int, emotion: str, confidence: float, source:
             "Content-Type": "application/json"
         }
         
+        # Enhanced data structure with photo response details
         data = {
             "user_id": user_id,
             "emotion": emotion,
             "confidence": confidence,
             "source": source,
-            "created_at": datetime.utcnow().isoformat()
+            "created_at": datetime.now(timezone.utc).isoformat()
         }
+        
+        # Add photo response specific data if available
+        if ai_response:
+            data["ai_response"] = ai_response
+        if all_emotions:
+            data["all_emotions"] = all_emotions
+        if face_detected is not None:
+            data["face_detected"] = face_detected
+        if color_suggestions:
+            data["color_suggestions"] = color_suggestions
+        if mood_trend:
+            data["mood_trend"] = mood_trend
+            
+        # Add emotion score (1-10 scale) for compatibility
+        emotion_score = int(confidence * 10)
+        data["emotion_score"] = emotion_score
+        
+        print(f"💾 Saving mood data: user_id={user_id}, emotion={emotion}, score={emotion_score}, source={source}")
+        print(f"🕐 Timestamp (UTC): {data['created_at']}")
         
         response = requests.post(
             f"{SUPABASE_URL}/rest/v1/mood_history",
@@ -155,6 +177,97 @@ def get_recent_mood(user_id: int, minutes: int = 5):
         print(f"❌ Error fetching recent mood: {e}")
         return None
 
+
+def get_mood_with_time_analysis(user_id: int, time_window_minutes: int = 30):
+    """Get mood data with time-based analysis combining color and emotion data"""
+    if not SUPABASE_URL or not SUPABASE_KEY:
+        return None
+    
+    try:
+        headers = {"apikey": SUPABASE_KEY, "Authorization": f"Bearer {SUPABASE_KEY}"}
+        
+        # Get mood data within time window
+        time_threshold = (datetime.now(timezone.utc) - timedelta(minutes=time_window_minutes)).isoformat()
+        
+        resp = requests.get(
+            f"{SUPABASE_URL}/rest/v1/mood_history",
+            headers=headers,
+            params={
+                "user_id": f"eq.{user_id}", 
+                "created_at": f"gte.{time_threshold}",
+                "order": "created_at.desc"
+            },
+            timeout=5
+        )
+        
+        if resp.status_code == 200:
+            data = resp.json()
+            if data and len(data) > 0:
+                # Analyze mood trends in time window
+                mood_analysis = {
+                    "current_mood": data[0].get('emotion'),
+                    "current_confidence": data[0].get('confidence'),
+                    "time_window_minutes": time_window_minutes,
+                    "mood_count_in_window": len(data),
+                    "mood_history": data[:5],  # Last 5 entries
+                    "trend_analysis": analyze_mood_trend(data),
+                    "color_emotion_integration": integrate_color_emotion_data(data)
+                }
+                return mood_analysis
+        return None
+    except Exception as e:
+        print(f"❌ Error fetching time-based mood analysis: {e}")
+        return None
+
+def analyze_mood_trend(mood_data):
+    """Analyze mood trends over time"""
+    if len(mood_data) < 2:
+        return {"trend": "insufficient_data", "change": 0}
+    
+    # Simple trend analysis based on emotion scores
+    emotion_scores = {
+        'happy': 8, 'excited': 9, 'surprised': 7,
+        'neutral': 5, 'sad': 2, 'angry': 1, 'fear': 3, 'disgust': 2
+    }
+    
+    latest_score = emotion_scores.get(mood_data[0].get('emotion', 'neutral'), 5)
+    previous_score = emotion_scores.get(mood_data[1].get('emotion', 'neutral'), 5)
+    
+    change = latest_score - previous_score
+    
+    if change > 2:
+        trend = "improving"
+    elif change < -2:
+        trend = "declining"
+    else:
+        trend = "stable"
+    
+    return {
+        "trend": trend,
+        "change": change,
+        "latest_emotion": mood_data[0].get('emotion'),
+        "previous_emotion": mood_data[1].get('emotion')
+    }
+
+def integrate_color_emotion_data(mood_data):
+    """Integrate color data with emotion analysis"""
+    color_emotion_map = {
+        'happy': {'colors': ['yellow', 'orange', 'bright'], 'intensity': 'high'},
+        'sad': {'colors': ['blue', 'gray', 'dark'], 'intensity': 'low'},
+        'angry': {'colors': ['red', 'dark_red', 'black'], 'intensity': 'high'},
+        'excited': {'colors': ['bright', 'vibrant', 'multi'], 'intensity': 'very_high'},
+        'neutral': {'colors': ['gray', 'white', 'soft'], 'intensity': 'medium'}
+    }
+    
+    current_emotion = mood_data[0].get('emotion', 'neutral')
+    color_info = color_emotion_map.get(current_emotion, color_emotion_map['neutral'])
+    
+    return {
+        "emotion": current_emotion,
+        "suggested_colors": color_info['colors'],
+        "emotional_intensity": color_info['intensity'],
+        "color_mood_correlation": f"{current_emotion} mood correlates with {', '.join(color_info['colors'])} colors"
+    }
 
 def get_latest_mood(user_id: int):
     """Get the latest mood for a user (no time limit) from Supabase."""
@@ -714,6 +827,111 @@ async def health():
     }
 
 # Backward-compatible API path for mobile app (frontend calls /api/v1/chat)
+@app.post("/api/mood/time-analysis")
+async def get_mood_time_analysis(
+    request: dict,
+    authorization: Optional[str] = Depends(verify_token)
+):
+    """
+    🎯 Time-based Mood Analysis with Color-Emotion Integration
+    - Analyzes mood trends within specified time window
+    - Integrates color data with emotion analysis
+    - Returns comprehensive mood insights for AI chat responses
+    """
+    try:
+        user_id = request.get('user_id', 1)
+        time_window_minutes = request.get('time_window_minutes', 30)
+        
+        print(f"🔍 Time-based mood analysis for user_id={user_id}, window={time_window_minutes}min")
+        
+        # Get comprehensive mood analysis
+        mood_analysis = get_mood_with_time_analysis(user_id, time_window_minutes)
+        
+        if not mood_analysis:
+            return {
+                "status": "no_data",
+                "message": "No mood data found in the specified time window",
+                "suggestions": ["Try taking a photo to capture your current mood"]
+            }
+        
+        # Generate AI response based on mood analysis
+        ai_response = generate_contextual_ai_response(mood_analysis)
+        
+        # Save current mood if provided
+        if request.get('current_emotion'):
+            try:
+                saved = save_mood_to_database(
+                    user_id=user_id, 
+                    emotion=request.get('current_emotion'),
+                    confidence=request.get('confidence', 0.8),
+                    source="chat_analysis"
+                )
+                print(f"✅ Current mood saved: {saved}")
+            except Exception as e:
+                print(f"❌ Error saving current mood: {e}")
+        
+        return {
+            "status": "success",
+            "mood_analysis": mood_analysis,
+            "ai_response": ai_response,
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "insights": {
+                "mood_stability": mood_analysis.get('trend_analysis', {}).get('trend', 'unknown'),
+                "emotional_intensity": mood_analysis.get('color_emotion_integration', {}).get('emotional_intensity', 'medium'),
+                "color_suggestions": mood_analysis.get('color_emotion_integration', {}).get('suggested_colors', []),
+                "mood_frequency": mood_analysis.get('mood_count_in_window', 0)
+            }
+        }
+        
+    except Exception as e:
+        print(f"❌ Error in time-based mood analysis: {e}")
+        return {
+            "status": "error",
+            "message": "Failed to analyze mood data",
+            "error": str(e)
+        }
+
+def generate_contextual_ai_response(mood_analysis):
+    """Generate AI response based on comprehensive mood analysis"""
+    current_mood = mood_analysis.get('current_mood', 'neutral')
+    trend = mood_analysis.get('trend_analysis', {})
+    color_info = mood_analysis.get('color_emotion_integration', {})
+    
+    # Response templates based on mood and trend
+    responses = {
+        'happy': {
+            'improving': "Amazing! Your mood is getting even better! 🌟 Keep spreading that positive energy!",
+            'stable': "You're feeling happy and stable - that's wonderful! 😊 What's bringing you joy today?",
+            'declining': "I notice you were happier before. Want to talk about what changed? 🤗"
+        },
+        'sad': {
+            'improving': "Great to see your mood improving! 🌈 You're moving in a positive direction.",
+            'stable': "I understand you're feeling sad. I'm here to listen whenever you need to talk. 💙",
+            'declining': "I'm concerned your mood is declining. Remember, it's okay to not be okay. 🫂"
+        },
+        'angry': {
+            'improving': "Good to see you're calming down. Take deep breaths - you've got this! 🌬️",
+            'stable': "I sense you're feeling angry. What's triggering these feelings? 🔥",
+            'declining': "Your anger seems to be intensifying. Let's find healthy ways to channel this. 💪"
+        },
+        'neutral': {
+            'improving': "You're on an upward trend! Something positive is happening! 📈",
+            'stable': "You're feeling balanced and neutral - sometimes that's exactly what we need. ⚖️",
+            'declining': "Your mood seems to be dropping. Want to explore what's behind this? 🤔"
+        }
+    }
+    
+    trend_type = trend.get('trend', 'stable')
+    mood_responses = responses.get(current_mood, responses['neutral'])
+    base_response = mood_responses.get(trend_type, mood_responses['stable'])
+    
+    # Add color-based suggestions
+    if color_info.get('suggested_colors'):
+        color_suggestion = f" Consider surrounding yourself with {', '.join(color_info.get('suggested_colors', []))} colors to enhance your mood."
+        base_response += color_suggestion
+    
+    return base_response
+
 @app.post("/api/v1/chat", response_model=ChatResponse)
 @app.post("/chat", response_model=ChatResponse)
 async def chat(
@@ -736,26 +954,46 @@ async def chat(
     
     try:
         print('DBG: chat handler entry - request=', getattr(request, 'model_dump', lambda: str(request))())
-        # --- SAFE MOOD RETRIEVAL ---
+        # --- ENHANCED MOOD RETRIEVAL WITH TIME ANALYSIS ---
         user_mood = None
         latest_mood_data = None
+        mood_analysis = None
 
         if request.user_id:
             try:
-                # database එකෙන් latest mood එක ගන්න වෙයි
-                latest_mood_data = get_latest_mood(request.user_id)
-
-                # Null-safe check before using .get()
-                if latest_mood_data and isinstance(latest_mood_data, dict):
-                    user_mood = latest_mood_data.get('emotion')
-                    print(f"🔎 Found mood in DB: {user_mood}")
+                # Get time-based mood analysis (last 30 minutes)
+                mood_analysis = get_mood_with_time_analysis(request.user_id, time_window_minutes=30)
+                
+                if mood_analysis:
+                    user_mood = mood_analysis.get('current_mood')
+                    print(f"🔎 Found time-based mood analysis: {user_mood}")
+                    print(f"📊 Trend: {mood_analysis.get('trend_analysis', {}).get('trend', 'unknown')}")
+                    print(f"🎨 Color correlation: {mood_analysis.get('color_emotion_integration', {}).get('color_mood_correlation', 'unknown')}")
+                else:
+                    # Fallback to latest mood
+                    latest_mood_data = get_latest_mood(request.user_id)
+                    if latest_mood_data and isinstance(latest_mood_data, dict):
+                        user_mood = latest_mood_data.get('emotion')
+                        print(f"🔎 Found latest mood in DB: {user_mood}")
             except Exception as e:
-                print(f"⚠️ Error fetching mood from DB: {e}")
+                print(f"⚠️ Error fetching mood analysis: {e}")
 
-        # --- ENHANCED PROMPT ---
+        # --- ENHANCED PROMPT WITH TIME AND COLOR CONTEXT ---
         enhanced_prompt = SYSTEM_PROMPT
         if user_mood:
-            enhanced_prompt += f"\nUser's last recorded mood: {user_mood}"
+            enhanced_prompt += f"\nUser's current mood: {user_mood}"
+            
+        if mood_analysis:
+            # Add trend analysis
+            trend = mood_analysis.get('trend_analysis', {})
+            if trend.get('trend') != 'insufficient_data':
+                enhanced_prompt += f"\nMood trend: {trend.get('trend')} (change: {trend.get('change')})"
+            
+            # Add color-emotion integration
+            color_info = mood_analysis.get('color_emotion_integration', {})
+            if color_info.get('color_mood_correlation'):
+                enhanced_prompt += f"\nColor-emotion insight: {color_info.get('color_mood_correlation')}"
+                enhanced_prompt += f"\nSuggested colors: {', '.join(color_info.get('suggested_colors', []))}"
 
         # Log for debugging
         print(f"🔎 Chat context - user_id={request.user_id} user_mood={user_mood}")
@@ -1133,6 +1371,279 @@ async def analyze_photo_status(task_id: str):
         raise HTTPException(status_code=404, detail="Task not found")
     return item
 
+
+@app.get("/api/photo-mood-history/{user_id}")
+async def get_photo_mood_history(
+    user_id: int,
+    limit: int = 10,
+    authorization: Optional[str] = Depends(verify_token)
+):
+    """
+    📸 Get Photo Mood History with AI Responses
+    - Retrieve mood data from photo analysis with AI responses
+    - Includes emotion, confidence, AI response, color suggestions
+    """
+    if not SUPABASE_URL or not SUPABASE_KEY:
+        return {"error": "Database not configured"}
+    
+    try:
+        headers = {"apikey": SUPABASE_KEY, "Authorization": f"Bearer {SUPABASE_KEY}"}
+        
+        # Get photo analysis records only
+        resp = requests.get(
+            f"{SUPABASE_URL}/rest/v1/mood_history",
+            headers=headers,
+            params={
+                "user_id": f"eq.{user_id}",
+                "source": "eq.photo_analysis",
+                "order": "created_at.desc",
+                "limit": limit
+            },
+            timeout=5
+        )
+        
+        if resp.status_code == 200:
+            data = resp.json()
+            
+            # Format response with key information
+            formatted_data = []
+            for record in data:
+                formatted_record = {
+                    "id": record.get("id"),
+                    "emotion": record.get("emotion"),
+                    "confidence": record.get("confidence"),
+                    "ai_response": record.get("ai_response"),
+                    "timestamp": record.get("created_at"),
+                    "face_detected": record.get("face_detected"),
+                    "all_emotions": record.get("all_emotions"),
+                    "color_suggestions": record.get("color_suggestions", []),
+                    "mood_trend": record.get("mood_trend")
+                }
+                formatted_data.append(formatted_record)
+            
+            return {
+                "status": "success",
+                "user_id": user_id,
+                "count": len(formatted_data),
+                "photo_mood_history": formatted_data
+            }
+        
+        return {"error": "Failed to fetch data", "status": resp.status_code}
+        
+    except Exception as e:
+        print(f"❌ Error fetching photo mood history: {e}")
+        return {"error": str(e), "status": "error"}
+
+@app.post("/api/photo-emotion-chat")
+async def photo_emotion_chat(
+    request: dict,
+    authorization: Optional[str] = Depends(verify_token)
+):
+    """
+    🎯 Photo Emotion Analysis with AI Response
+    - Analyzes photo for emotion using DeepFace
+    - Generates contextual AI response based on detected emotion
+    - Saves mood data to database
+    - Returns both emotion analysis and AI chat response
+    """
+    temp_path = None
+    try:
+        # 1. Extract user_id and image
+        user_id = request.get('user_id', 1)
+        base64_image = request.get('image')
+        
+        if not base64_image:
+            return JSONResponse(status_code=400, content={
+                "error": "No image provided",
+                "message": "Please provide an image for emotion analysis"
+            })
+        
+        print(f"📸 Photo emotion analysis for user_id={user_id}")
+        
+        # 2. Decode base64 image
+        try:
+            if ',' in base64_image:
+                base64_image = base64_image.split(',')[1]
+            image_data = base64.b64decode(base64_image)
+        except Exception as e:
+            print(f"❌ Base64 decode error: {str(e)}")
+            return JSONResponse(status_code=400, content={
+                "error": "Invalid image format",
+                "message": "Please provide a valid base64 image"
+            })
+
+        # 3. Save to temp file
+        temp_path = f"/tmp/photo_emotion_{user_id}_{os.urandom(4).hex()}.jpg"
+        with open(temp_path, "wb") as f:
+            f.write(image_data)
+
+        # 4. Detect emotion using DeepFace
+        detected_emotion = "Neutral"
+        confidence = 0.4
+        all_emotions = {}
+        face_detected = False
+        method = "none"
+
+        if DEEPFACE_AVAILABLE:
+            detected_emotion, confidence, all_emotions, face_detected, method = detect_emotion_with_preprocessing(temp_path)
+            print(f"🎭 Emotion detected: {detected_emotion} (confidence: {confidence:.2f})")
+
+        # 5. Get time-based mood context
+        mood_context = None
+        try:
+            mood_context = get_mood_with_time_analysis(user_id, time_window_minutes=30)
+            print(f"📊 Mood context: {mood_context.get('current_mood') if mood_context else 'None'}")
+        except Exception as e:
+            print(f"⚠️ Error getting mood context: {e}")
+
+        # 6. Generate AI response based on emotion and context
+        ai_response = generate_emotion_based_ai_response(detected_emotion, confidence, mood_context)
+        
+        # 7. Save comprehensive mood data to database
+        saved = False
+        try:
+            # Extract additional data for saving
+            color_suggestions = mood_context.get('color_emotion_integration', {}).get('suggested_colors', []) if mood_context else []
+            mood_trend = mood_context.get('trend_analysis', {}).get('trend') if mood_context else None
+            
+            saved = save_mood_to_database(
+                user_id=user_id, 
+                emotion=detected_emotion, 
+                confidence=confidence, 
+                source="photo_analysis",
+                ai_response=ai_response,
+                all_emotions=all_emotions,
+                face_detected=face_detected,
+                color_suggestions=color_suggestions,
+                mood_trend=mood_trend
+            )
+            print(f"💾 Comprehensive mood data saved: {saved}")
+            print(f"📝 Saved data includes: emotion={detected_emotion}, ai_response, colors={len(color_suggestions)}, trend={mood_trend}")
+        except Exception as e:
+            print(f"❌ Error saving comprehensive mood data: {e}")
+
+        # 8. Clean up temp file
+        try:
+            if temp_path and os.path.exists(temp_path):
+                os.remove(temp_path)
+        except Exception:
+            pass
+
+        # 9. Return comprehensive response
+        status_flag = "deepface_success" if DEEPFACE_AVAILABLE and confidence >= 0.5 else ("no_face_detected" if not face_detected else "deepface_fallback")
+
+        return JSONResponse(status_code=200, content={
+            "status": "success",
+            "emotion_analysis": {
+                "emotion": detected_emotion,
+                "confidence": float(confidence),
+                "all_emotions": all_emotions,
+                "face_detected": face_detected,
+                "detection_method": method,
+                "detection_status": status_flag
+            },
+            "ai_response": ai_response,
+            "mood_context": {
+                "has_context": mood_context is not None,
+                "trend": mood_context.get('trend_analysis', {}).get('trend') if mood_context else None,
+                "color_suggestions": mood_context.get('color_emotion_integration', {}).get('suggested_colors', []) if mood_context else []
+            },
+            "data_saved": saved,
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "user_id": user_id
+        })
+
+    except Exception as e:
+        print(f"❌ Error in photo emotion chat: {e}")
+        # Clean up on error
+        try:
+            if temp_path and os.path.exists(temp_path):
+                os.remove(temp_path)
+        except Exception:
+            pass
+        
+        return JSONResponse(status_code=500, content={
+            "status": "error",
+            "error": "Failed to analyze photo and generate response",
+            "message": str(e)
+        })
+
+def generate_emotion_based_ai_response(detected_emotion, confidence, mood_context):
+    """Generate AI response based on detected emotion and mood context"""
+    
+    # Emotion-based response templates
+    emotion_responses = {
+        'happy': [
+            "I can see you're feeling happy! 😊 Your smile brightens up everything around you! What's making you joyful today?",
+            "You look absolutely happy! 🌟 That positive energy is wonderful to see. Share what's bringing you this happiness!",
+            "Such a happy expression! 😄 Keep spreading that joy - it's contagious! What's the good news?"
+        ],
+        'sad': [
+            "I notice you seem to be feeling sad. 💙 It's okay to feel this way. I'm here to listen whenever you need to talk.",
+            "Your expression shows some sadness. 🫂 Remember, it's okay to have these feelings. Would you like to share what's on your mind?",
+            "I can see you're feeling down. 💤 Sometimes we just need to acknowledge our emotions. I'm here to support you."
+        ],
+        'angry': [
+            "I sense some anger in your expression. 🔥 Take a deep breath - your feelings are valid. What's triggering this emotion?",
+            "You look angry. 💪 It's okay to feel this way. Let's find healthy ways to channel this energy together.",
+            "I can see you're feeling angry. 🌬️ Your emotions are important. Want to talk about what's causing this?"
+        ],
+        'surprised': [
+            "What a surprised expression! 😮 Something unexpected must have happened! Tell me what surprised you!",
+            "You look completely surprised! 🤯 What's the shocking news or event? I'm curious to know!",
+            "Such surprise on your face! ✨ Share what caught you off guard - I'm all ears!"
+        ],
+        'fear': [
+            "I notice some fear in your expression. 🛡️ You're safe, and it's okay to feel scared. What's worrying you?",
+            "Your expression shows fear. 🫂 Remember that you're stronger than you think. What's making you anxious?",
+            "I can see you're feeling afraid. 💙 Take comfort in knowing that this feeling will pass. What's troubling you?"
+        ],
+        'disgust': [
+            "I sense disgust in your reaction. 🤢 Something must have really bothered you. What's causing this feeling?",
+            "Your expression shows disgust. 😕 It's clear something didn't sit well with you. Want to talk about it?",
+            "I can see you're feeling disgusted. 🤔 What triggered this strong reaction?"
+        ],
+        'neutral': [
+            "You look calm and neutral. 😌 Sometimes peace is exactly what we need. How are you feeling right now?",
+            "A peaceful, neutral expression. 🧘‍♀️ What's on your mind today? I'm here to chat about anything.",
+            "You seem balanced and composed. ⚖️ What would you like to talk about?"
+        ]
+    }
+    
+    # Get appropriate response
+    responses = emotion_responses.get(detected_emotion, emotion_responses['neutral'])
+    base_response = responses[0]  # Use first response as default
+    
+    # Add confidence-based context
+    if confidence >= 0.8:
+        confidence_context = "I'm quite confident about this reading."
+    elif confidence >= 0.6:
+        confidence_context = "I'm fairly confident about this emotion."
+    else:
+        confidence_context = "I'm detecting this emotion, though with lower confidence."
+    
+    # Add mood context if available
+    mood_addition = ""
+    if mood_context:
+        trend = mood_context.get('trend_analysis', {}).get('trend')
+        if trend == 'improving':
+            mood_addition = " I also notice your mood has been improving recently - that's wonderful!"
+        elif trend == 'declining':
+            mood_addition = " I'm concerned that your mood seems to be declining - let's talk about how we can turn this around."
+        else:
+            mood_addition = " Your mood seems quite stable lately."
+    
+    # Add color suggestions if available
+    color_addition = ""
+    if mood_context and mood_context.get('color_emotion_integration'):
+        colors = mood_context.get('color_emotion_integration', {}).get('suggested_colors', [])
+        if colors:
+            color_addition = f" Consider surrounding yourself with {', '.join(colors[:2])} colors to enhance your mood."
+    
+    # Combine all parts
+    full_response = f"{base_response} {confidence_context}{mood_addition}{color_addition}"
+    
+    return full_response.strip()
 
 @app.post("/analyze-photo-emotion")
 async def analyze_photo_emotion(
