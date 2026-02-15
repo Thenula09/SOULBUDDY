@@ -1,5 +1,5 @@
 import React, { useEffect, useRef } from 'react';
-import { View, Text, TouchableOpacity, Animated } from 'react-native';
+import { Text, TouchableOpacity, Animated } from 'react-native';
 import { OnboardingScreenProps } from '../../types/navigation';
 import { onboarding2Styles } from './onboarding2Styles';
 import Rive from 'rive-react-native';
@@ -28,7 +28,7 @@ const Onboarding2: React.FC<OnboardingScreenProps> = ({ navigation }) => {
         useNativeDriver: true,
       }),
     ]).start();
-  }, []);
+  }, [fadeAnim, slideAnim, scaleAnim]);
 
   return (
     <Animated.View 

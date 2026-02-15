@@ -55,6 +55,15 @@ app.add_middleware(
 
 security = HTTPBearer()
 
+# Optional Supabase integration for mood persistence
+SUPABASE_URL = os.getenv("SUPABASE_URL", "")
+SUPABASE_KEY = os.getenv("SUPABASE_KEY", "")
+
+import requests
+
+def _supabase_headers():
+    return {"apikey": SUPABASE_KEY, "Authorization": f"Bearer {SUPABASE_KEY}"} if SUPABASE_KEY else {}
+
 # Dependency to get current user from token
 async def get_current_user(
     credentials: HTTPAuthorizationCredentials = Depends(security),
@@ -178,6 +187,9 @@ async def get_current_user_info(current_user: User = Depends(get_current_user)):
 PROFILE_CACHE: dict = {}
 CACHE_TTL_SECONDS = 30
 
+# In-memory mood store for local/dev (user_id -> list of mood records)
+MOOD_STORE: dict = {}
+
 def _get_cached_user(user_id: int):
     item = PROFILE_CACHE.get(user_id)
     if not item:
@@ -190,6 +202,22 @@ def _get_cached_user(user_id: int):
 
 def _set_cached_user(user_id: int, data):
     PROFILE_CACHE[user_id] = (time.time(), data)
+
+
+def _get_today_moods_for_user(user_id: int):
+    """Return in-memory moods for the given user for the current UTC day."""
+    items = MOOD_STORE.get(user_id, [])
+    today = datetime.utcnow().date()
+    filtered = []
+    for m in items:
+        try:
+            ts = datetime.fromisoformat(m.get("timestamp"))
+            if ts.date() == today:
+                filtered.append(m)
+        except Exception:
+            # if timestamp missing or bad format, include it
+            filtered.append(m)
+    return filtered
 
 @app.get("/api/users/{user_id}", response_model=UserResponse)
 async def get_user(
@@ -364,6 +392,50 @@ async def get_user_profile(
         }
     return profile
 
+
+# Backward-compatible public route used by mobile frontend (some clients call /users/profile/:id)
+@app.get('/users/profile/{user_id}')
+async def users_profile_compat(user_id: str, db: Session = Depends(get_db)):
+    """Compatibility wrapper that returns the same payload as /api/profile/{user_id}.
+    Accepts either numeric ID or UUID string and maps to integer user_id when possible."""
+    # try to coerce numeric id first
+    try:
+        uid_int = int(user_id)
+        return await get_user_profile(uid_int, db)
+    except Exception:
+        # attempt to find user by uuid or fallback to 404-like empty profile
+        user = db.query(User).filter((User.id == user_id) | (User.email == user_id) | (User.username == user_id)).first()
+        if user:
+            return await get_user_profile(user.id, db)
+        # Fallback: return empty profile shape for frontend
+        return {
+            "id": 0,
+            "user_id": 0,
+            "hobbies": None,
+            "family_members": 0,
+            "ambitions": [],
+            "job_title": "",
+            "top_company": "",
+            "pet_name": "",
+            "skills": [],
+            "age": None,
+            "weight": None,
+            "is_student": False,
+            "is_married": False,
+            "relationship_status": "single",
+            "health_conditions": [],
+            "favorite_songs": [],
+            "province": "",
+            "city": "",
+            "village": "",
+            "profile_photo_url": None,
+            "sleep_latency": None,
+            "exercise_time": "",
+            "lifestyle": {"sleep": 7, "exercise": 30, "diet": "good"},
+            "created_at": datetime.utcnow(),
+            "updated_at": None
+        }
+
 @app.post("/users/mood")
 async def save_mood_data(
     mood_data: MoodData,
@@ -372,7 +444,8 @@ async def save_mood_data(
 ):
     """
     Save mood data from chat conversations.
-    This endpoint stores emotional state detected during AI chat interactions.
+    - Stores the record in an in-memory store for local/dev testing
+    - Returns the saved record
     """
     # Verify token and get user
     token = credentials.credentials
@@ -398,21 +471,128 @@ async def save_mood_data(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="User not found"
         )
-    
-    # TODO: Store mood data in database
-    # For now, just return success - you'll need to create a MoodHistory model later
-    print(f"\u2705 Mood data received for user {user.id}: {mood_data.emotion} (score: {mood_data.emotion_score})")
+
+    # Build mood record (local representation)
+    record = {
+        "emotion": mood_data.emotion,
+        "emotion_score": mood_data.emotion_score or 5,
+        "chat_message_id": mood_data.chat_message_id,
+        "notes": mood_data.notes,
+        "lifestyle": mood_data.lifestyle or {},
+        "timestamp": datetime.utcnow().isoformat()
+    }
+
+    saved_to_supabase = False
+
+    # If Supabase configured, persist to `mood_history` table there as canonical storage
+    if SUPABASE_URL and SUPABASE_KEY:
+        try:
+            payload = {
+                "user_id": user.id,
+                "emotion": record["emotion"],
+                # map 1-10 score -> 0.0-1.0 confidence
+                "confidence": float((record.get("emotion_score") or 5) / 10.0),
+                "source": "chat",
+                "created_at": datetime.utcnow().isoformat()
+            }
+            headers = _supabase_headers()
+            headers.update({"Content-Type": "application/json", "Prefer": "return=representation"})
+            resp = requests.post(f"{SUPABASE_URL}/rest/v1/mood_history", headers=headers, json=payload, timeout=5)
+            if resp.status_code in (200, 201):
+                saved_to_supabase = True
+                print(f"✅ Mood saved to Supabase for user {user.id}: {payload}")
+            else:
+                print(f"⚠️ Supabase mood insert failed: {resp.status_code} - {resp.text}")
+        except Exception as e:
+            print(f"❌ Supabase mood insert error: {e}")
+
+    # Always keep in-memory store for local/dev fallback and fast reads
+    MOOD_STORE.setdefault(user.id, []).append(record)
+
+    print(f"\u2705 Mood data received for user {user.id}: {record['emotion']} (score: {record['emotion_score']}) (supabase={saved_to_supabase})")
     
     return {
         "success": True,
         "message": "Mood data saved successfully",
         "data": {
             "user_id": user.id,
-            "emotion": mood_data.emotion,
-            "emotion_score": mood_data.emotion_score,
-            "timestamp": datetime.utcnow().isoformat()
+            "supabase_saved": saved_to_supabase,
+            **record
         }
     }
+
+
+@app.get("/users/mood/today")
+async def get_today_moods(
+    credentials: HTTPAuthorizationCredentials = Depends(security),
+    db: Session = Depends(get_db)
+):
+    """Return today's mood entries for the authenticated user (in-memory fallback)."""
+    token = credentials.credentials
+    payload = decode_access_token(token)
+    if payload is None:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid authentication credentials")
+    email = payload.get("sub")
+    user = db.query(User).filter(User.email == email).first()
+    if not user:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
+
+    # If Supabase configured, read today's moods from `mood_history` first
+    if SUPABASE_URL and SUPABASE_KEY:
+        try:
+            headers = _supabase_headers()
+            params = {
+                "user_id": f"eq.{user.id}",
+                "created_at": f"gte.{datetime.utcnow().date().isoformat()}",
+                "order": "created_at.asc"
+            }
+            resp = requests.get(f"{SUPABASE_URL}/rest/v1/mood_history", headers=headers, params=params, timeout=5)
+            if resp.status_code == 200:
+                data = resp.json()
+                # Normalize to frontend shape
+                items = [
+                    {
+                        "emotion": d.get("emotion"),
+                        "emotion_score": int((d.get("confidence") or 0) * 10),
+                        "timestamp": d.get("created_at"),
+                        "source": d.get("source")
+                    }
+                    for d in data
+                ]
+                return items
+            else:
+                print(f"⚠️ Supabase read failed: {resp.status_code} - {resp.text}")
+        except Exception as e:
+            print(f"❌ Error querying Supabase for today moods: {e}")
+
+    # Fallback to in-memory store for local/dev
+    items = _get_today_moods_for_user(user.id)
+    # Return as an array to match frontend expectations
+    return items
+
+
+@app.get("/users/mood/analytics/today")
+async def get_mood_analytics_today(
+    credentials: HTTPAuthorizationCredentials = Depends(security),
+    db: Session = Depends(get_db)
+):
+    """Return simple analytics (counts per emotion) for today's moods (in-memory)."""
+    token = credentials.credentials
+    payload = decode_access_token(token)
+    if payload is None:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid authentication credentials")
+    email = payload.get("sub")
+    user = db.query(User).filter(User.email == email).first()
+    if not user:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
+
+    items = _get_today_moods_for_user(user.id)
+    counts: dict = {}
+    for m in items:
+        emo = m.get("emotion") or "Unknown"
+        counts[emo] = counts.get(emo, 0) + 1
+
+    return {"user_id": user.id, "total": len(items), "counts": counts}
 
 if __name__ == "__main__":
     import uvicorn

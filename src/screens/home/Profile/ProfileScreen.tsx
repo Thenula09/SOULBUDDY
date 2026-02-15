@@ -3,6 +3,8 @@ import { View, Text, StyleSheet, Image, ActivityIndicator, Alert, TextInput, Tou
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { launchImageLibrary } from 'react-native-image-picker';
 import { useIsFocused } from '@react-navigation/native';
+import { profileService } from '../../../services/api';
+import { API_ENDPOINTS, fetchWithTimeout, API_CONFIG } from '../../../config/api';
 
 const HOBBIES_PRESET = ['Reading','Traveling','Cooking','Gaming','Photography','Gardening','Painting','Writing','Music','Dancing'];
 const HEALTH_PRESET = ['Diabetes','Hypertension','Asthma','Anxiety','Depression','Allergy','Back Pain','Arthritis','Migraine','Thyroid','Cardiac','Obesity','Insomnia','Skin Condition','Other'];
@@ -66,7 +68,62 @@ const ProfileScreen: React.FC = () => {
         console.warn('Failed to parse local profile', e);
       }
     }
+
+    // still show local data quickly, then attempt to refresh from server (if logged in)
     setLoading(false);
+
+    if (uid) {
+      (async () => {
+        try {
+          const serverProfile: any = await profileService.getProfile(uid);
+
+          // Merge server profile into UI (only override when present)
+          if (serverProfile) {
+            if (serverProfile.hobbies) setHobbies(serverProfile.hobbies || []);
+            if (serverProfile.health_conditions) setHealthConditions(serverProfile.health_conditions || []);
+            if (serverProfile.job_title) setJobTitle(serverProfile.job_title || '');
+            if (serverProfile.top_company) setTopCompany(serverProfile.top_company || '');
+            if (typeof serverProfile.family_members !== 'undefined') setFamilyMembers(serverProfile.family_members || 0);
+            if (typeof serverProfile.age !== 'undefined') setAge(serverProfile.age || undefined);
+            if (typeof serverProfile.weight !== 'undefined') setWeight(serverProfile.weight || undefined);
+            if (serverProfile.province) setProvince(serverProfile.province || '');
+            if (serverProfile.city) setCity(serverProfile.city || '');
+            if (serverProfile.village) setVillage(serverProfile.village || '');
+            if (typeof serverProfile.sleep_latency !== 'undefined') setSleepLatency(serverProfile.sleep_latency || undefined);
+            if (serverProfile.exercise_time) setExerciseTime(serverProfile.exercise_time || '');
+
+            // server may provide a profile photo URL
+            if (serverProfile.profile_photo_url) {
+              setPhotoUri(serverProfile.profile_photo_url);
+              try { await AsyncStorage.setItem(`profile_photo_${uid}`, serverProfile.profile_photo_url); } catch {}
+            }
+
+            // cache server profile locally so next open is fast
+            try { await AsyncStorage.setItem(`local_profile_${uid}`, JSON.stringify(serverProfile)); } catch {}
+          }
+        } catch (err) {
+          console.warn('Failed to fetch server profile (non-fatal):', err);
+        }
+
+        // Also fetch basic user record (for full_name) if we have an access token
+        try {
+          const token = await AsyncStorage.getItem('access_token');
+          if (token) {
+            const resp = await fetchWithTimeout(API_ENDPOINTS.USER_BY_ID(Number(uid)), { headers: { Authorization: `Bearer ${token}` } }, API_CONFIG.TIMEOUT.PROFILE);
+            if (resp.ok) {
+              const user = await resp.json();
+              if (user.full_name) {
+                setFullName(user.full_name);
+                await AsyncStorage.setItem('user_name', user.full_name);
+              }
+            }
+          }
+        } catch (err) {
+          // not fatal
+          console.warn('Failed to fetch basic user info:', err);
+        }
+      })();
+    }
   }, []);
 
   useEffect(() => {

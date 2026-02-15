@@ -23,23 +23,23 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const LifestyleScreen: React.FC = () => {
   const [todayMoods, setTodayMoods] = React.useState<any[]>([]);
-  const [lastMoods, setLastMoods] = React.useState<any[]>([]);
+  const [_lastMoods, setLastMoods] = React.useState<any[]>([]);
   const [pieData, setPieData] = React.useState<any[]>([]);
   const [lifestyleEntries, setLifestyleEntries] = React.useState<any[]>([]);
   const [weekSummary, setWeekSummary] = React.useState<any>({});
-  const [loading, setLoading] = React.useState<boolean>(true);
+  const [_loading, setLoading] = React.useState<boolean>(true);
   const [isUnauth, setIsUnauth] = React.useState<boolean>(false);
 
   const API_HOST = Platform.OS === 'android' ? 'http://10.0.2.2:8000' : 'http://10.190.154.90:8000';
 
-  const fetchData = async () => {
+  const fetchData = React.useCallback(async () => {
     setLoading(true);
     try {
       const uid = await AsyncStorage.getItem('user_id') || '1';
 
       const accessToken = await AsyncStorage.getItem('access_token');
       const headers: any = { 'Content-Type': 'application/json' };
-      if (accessToken) headers['Authorization'] = `Bearer ${accessToken}`;
+      if (accessToken) headers.Authorization = `Bearer ${accessToken}`;
 
       const [todayRes, lastRes, entriesRes, weekRes] = await Promise.all([
         fetch(`${API_HOST}/api/lifestyle/moods/today/${uid}`, { headers }),
@@ -117,9 +117,9 @@ const LifestyleScreen: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [API_HOST]);
 
-  React.useEffect(() => { fetchData(); }, []);
+  React.useEffect(() => { fetchData(); }, [fetchData]);
 
   const onQuickAction = async (type: 'sleep'|'exercise'|'hydration') => {
     try {
@@ -204,13 +204,13 @@ const LifestyleScreen: React.FC = () => {
       <View style={styles.card}>
         <Text style={styles.cardTitle}>Recent lifestyle entries</Text>
         {isUnauth ? (
-          <Text style={[styles.emptyText, { color: '#c0392b' }]}>Please log in to view persisted lifestyle entries.</Text>
+          <Text style={[styles.emptyText, styles.emptyTextError]}>Please log in to view persisted lifestyle entries.</Text>
         ) : lifestyleEntries && lifestyleEntries.length > 0 ? (
           lifestyleEntries.map((e: any, i: number) => (
-            <View key={i} style={{ paddingVertical: 8, borderBottomWidth: i < lifestyleEntries.length - 1 ? 1 : 0, borderBottomColor: '#eee' }}>
-              <Text style={{ fontSize: 12, color: '#666' }}>{new Date(e.ts || e.created_at || e.time).toLocaleString()}</Text>
-              <Text style={{ fontWeight: '600', marginTop: 4 }}>{e.sleep_hours ? `Sleep: ${e.sleep_hours} hrs` : ''}{e.exercise_minutes ? ` • Exercise: ${e.exercise_minutes} min` : ''}{e.water_glasses ? ` • Water: ${e.water_glasses}` : ''}</Text>
-              {e.notes ? <Text style={{ color: '#666', marginTop: 4 }}>{e.notes}</Text> : null}
+            <View key={i} style={[styles.entryRow, i < lifestyleEntries.length - 1 && styles.entryRowBorder]}>
+              <Text style={styles.entryTimestamp}>{new Date(e.ts || e.created_at || e.time).toLocaleString()}</Text>
+              <Text style={styles.entryTitle}>{e.sleep_hours ? `Sleep: ${e.sleep_hours} hrs` : ''}{e.exercise_minutes ? ` • Exercise: ${e.exercise_minutes} min` : ''}{e.water_glasses ? ` • Water: ${e.water_glasses}` : ''}</Text>
+              {e.notes ? <Text style={styles.entryNotes}>{e.notes}</Text> : null}
             </View>
           ))
         ) : (
@@ -239,6 +239,12 @@ const styles = StyleSheet.create({
   actionText: { color: '#fff', fontWeight: '600' },
   note: { marginTop: 8, fontSize: 12, color: '#666' },
   emptyText: { color: '#888', fontSize: 12, textAlign: 'center', paddingVertical: 12 },
+  emptyTextError: { color: '#c0392b' },
+  entryRow: { paddingVertical: 8, borderBottomColor: '#eee' },
+  entryRowBorder: { borderBottomWidth: 1 },
+  entryTimestamp: { fontSize: 12, color: '#666' },
+  entryTitle: { fontWeight: '600', marginTop: 4 },
+  entryNotes: { color: '#666', marginTop: 4 },
 });
 
 export default LifestyleScreen;

@@ -1,6 +1,6 @@
 import React from 'react';
 import { StyleSheet } from 'react-native';
-import Svg, { Defs, Image, Use, Path } from 'react-native-svg';
+import Svg, { Use, Path } from 'react-native-svg';
 
 const LoginBackground: React.FC = () => {
   return (

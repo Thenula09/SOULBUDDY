@@ -37,7 +37,7 @@ const RiveAnimationDemo: React.FC<Props> = ({ navigation }) => {
         useNativeDriver: true,
       }),
     ]).start();
-  }, []);
+  }, [fadeAnim, slideAnim, scaleAnim]);
 
   return (
     <ScrollView contentContainerStyle={riveAnimationDemoStyles.scrollContainer}>

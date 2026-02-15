@@ -4,6 +4,7 @@ import {
   KeyboardAvoidingView, Platform, StyleSheet, Alert, Image, PermissionsAndroid
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { API_ENDPOINTS, fetchWithTimeout } from '../../../config/api';
 import { launchCamera, launchImageLibrary, type CameraOptions } from 'react-native-image-picker';
 import { FlashList } from '@shopify/flash-list';
 import { ChatSkeleton } from '../../../components/ScreenSkeletons';
@@ -28,9 +29,9 @@ const ChatScreen = () => {
   const formatTime = (ts?: string) => {
     try {
       if (!ts) return '';
-      const d = new Date(ts);
-      return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-    } catch (e) {
+      const { formatTimeInColombo } = require('../../../utils/time');
+      return formatTimeInColombo(ts);
+    } catch {
       return '';
     }
   };
@@ -99,7 +100,7 @@ const ChatScreen = () => {
 
   const handleRefresh = useCallback(async () => {
     try {
-      await fetch('http://10.0.2.2:8001/api/v1/reset-chat', { method: 'POST' });
+      await fetch(API_ENDPOINTS.RESET_CHAT, { method: 'POST' });
       console.log('Chat reset by user');
       const welcome: Message[] = [{ id: '1', text: "Hello! I'm SoulBuddy. How can I help you today?", sender: 'bot' }];
       setMessages(welcome);
@@ -143,7 +144,7 @@ const ChatScreen = () => {
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
       
-      const response = await fetch('http://10.0.2.2:8001/api/v1/chat', {
+      const response = await fetch(API_ENDPOINTS.CHAT, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -242,11 +243,28 @@ const ChatScreen = () => {
             { text: 'Cancel', style: 'cancel' }
           ]);
         } else if (response.assets && response.assets.length > 0) {
+          const asset = response.assets[0];
+          const mimeType = asset.type || '';
+          const fileName = asset.fileName || asset.uri || '';
+          const ext = (fileName.split('.').pop() || '').toLowerCase();
+
+          // Reject non-image picks (sometimes gallery returns non-image files)
+          if (!mimeType.startsWith('image/') && !['jpg','jpeg','png','heic','webp'].includes(ext)) {
+            console.warn('Selected non-image from camera:', asset);
+            const botMessage = {
+              id: Date.now().toString() + '_bot_invalid',
+              text: 'ඔයාලා තෝරපු ෆයිල් එක image එකක් නෙවෙයි — කරුණාකර gallery/කැමරාවෙන් jpg/png ෆොටෝ එකක් තෝරන්න.',
+              sender: 'bot'
+            };
+            setMessages(prev => [...prev, botMessage]);
+            return;
+          }
+
           console.log('Photo captured!');
-          const source = { uri: response.assets[0].uri };
-          const base64Image = `data:image/jpeg;base64,${response.assets[0].base64}`;
+          const source = { uri: asset.uri };
+          const base64Image = `data:${mimeType || 'image/jpeg'};base64,${asset.base64}`;
           
-          // පින්තූරය මැසේජ් ලිස්ට් එකට එකතු කරමු
+          // පින්තූරය මැසේජ์ ලිස්ට් එකට එකතු කරමු
           const photoMessage = {
             id: Date.now().toString() + '_photo',
             image: source.uri,
@@ -258,44 +276,174 @@ const ChatScreen = () => {
           // Backend එකට යවලා emotion එක detect කරමු
           try {
             console.log('Analyzing emotion...');
-            const emotionResponse = await fetch('http://10.0.2.2:8001/api/v1/analyze-emotion', {
+            // Give the backend more time for DeepFace processing (30s) and fail gracefully
+            const emotionResponse = await fetchWithTimeout(API_ENDPOINTS.ANALYZE_EMOTION, {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({ image: base64Image }),
-            });
-            
+            }, 30000);
+
             const emotionData = await emotionResponse.json();
-            console.log('Detected emotion:', emotionData.emotion);
-            
-            // Save mood data to backend for tracking
-            const moodSaved = await saveMoodData({
-              emotion: emotionData.emotion,
-              emotion_score: emotionData.emotion_score || 7,
-              notes: 'Detected from photo during chat'
-            });
-            console.log('Mood data saved:', moodSaved);
-            
-            // Emotion එක detect වුණාම AI ට කියලා reply එකක් ගමු
-            const aiResponse = await fetch('http://10.0.2.2:8001/api/v1/chat', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                message: `I just shared my photo. How do I look?`,
-                mood: emotionData.emotion
-              }),
-            });
-            
-            const aiData = await aiResponse.json();
-            console.log('AI reply:', aiData.reply);
-            const botMessage = {
-              id: Date.now().toString() + '_bot',
-              text: aiData.reply,
-              sender: 'bot',
-            };
-            setMessages(prev => [...prev, botMessage]);
+            console.log('Detected emotion:', emotionData);
+
+            // If no emotion detected at all, attempt a multipart/file-upload fallback
+            // Backend always returns an emotion (defaults to "Neutral" even when face not clear)
+            // Only fallback if we get a truly broken response (no emotion field)
+            if (!emotionData || !emotionData.emotion || emotionData.status === 'fallback_decode_error') {
+              console.warn('Photo analysis returned no emotion / bad payload, trying multipart fallback:', emotionData);
+
+              // Multipart fallback to `/analyze-photo-emotion` (sometimes more reliable)
+              try {
+                console.log('Attempting multipart fallback to analyze-photo-emotion...');
+                const fd = new FormData();
+                fd.append('file', {
+                  uri: source.uri,
+                  name: `photo_${Date.now()}.jpg`,
+                  type: 'image/jpeg'
+                } as any);
+                fd.append('user_id', '1');
+                // ask server to process in background so the client isn't blocked
+                fd.append('background', 'true');
+
+                const photoResp = await fetch(API_ENDPOINTS.ANALYZE_PHOTO, {
+                  method: 'POST',
+                  body: fd,
+                });
+
+                const photoData = await photoResp.json();
+                console.log('Multipart fallback result:', photoData);
+
+                // If server queued background work, show immediate ack and poll for result
+                if (photoResp.status === 202 || photoData?.status === 'processing') {
+                  const taskId = photoData.task_id;
+                  const ackMsg = {
+                    id: Date.now().toString() + '_bot_processing',
+                    text: 'Got your photo — analysing now, I will tell you when it is ready. ✨',
+                    sender: 'bot'
+                  };
+                  setMessages(prev => [...prev, ackMsg]);
+
+                  // Poll task status until done (short-lived, timeout after ~25s)
+                  const start = Date.now();
+                  const poll = async () => {
+                    try {
+                      const statusResp = await fetch(`${API_ENDPOINTS.ANALYZE_PHOTO}/status/${taskId}`);
+                      const statusJson = await statusResp.json();
+                      console.log('Photo task status:', statusJson);
+                      if (statusJson.status === 'done' && statusJson.result) {
+                        const res = statusJson.result;
+                        // Insert final bot reply and refresh today's moods
+                        const finalBot = {
+                          id: Date.now().toString() + '_bot_photo_final',
+                          text: res.bot_reply || `Thanks — I detected ${res.emotion}. How does that feel?`,
+                          sender: 'bot'
+                        };
+                        setMessages(prev => [...prev, finalBot]);
+                        // refresh moods shown in header/timeline
+                        fetchTodayMoods();
+                        return;
+                      }
+                      if (statusJson.status === 'error') {
+                        const errMsg = { id: Date.now().toString() + '_bot_err', text: 'Could not finish analyzing your photo — try again.', sender: 'bot' };
+                        setMessages(prev => [...prev, errMsg]);
+                        return;
+                      }
+                    } catch (err) {
+                      console.warn('Polling error:', err);
+                    }
+                    if (Date.now() - start < 25000) {
+                      setTimeout(poll, 1500);
+                    } else {
+                      const timeoutMsg = { id: Date.now().toString() + '_bot_timeout', text: "Analysis is taking longer than expected — I'll try again later.", sender: 'bot' };
+                      setMessages(prev => [...prev, timeoutMsg]);
+                    }
+                  };
+                  setTimeout(poll, 1000);
+                  return;
+                }
+
+                // Accept the response as long as it has an emotion (even "Neutral" with low confidence is ok)
+                if (!photoData || !photoData.emotion) {
+                  console.warn('Multipart fallback returned no emotion:', photoData);
+                  const botMessage = {
+                    id: Date.now().toString() + '_bot_fallback',
+                    text: "Couldn't analyze the photo — try a clearer selfie or choose one from your gallery.",
+                    sender: 'bot'
+                  };
+                  setMessages(prev => [...prev, botMessage]);
+                  return;
+                }
+
+                // Use fallback result as the emotionData
+                Object.assign(emotionData, photoData);
+
+              } catch (fallbackErr) {
+                console.warn('Multipart fallback failed:', fallbackErr);
+                const botMessage = {
+                  id: Date.now().toString() + '_bot_fallback',
+                  text: "Couldn't analyze the photo right now — try again or pick a different image.",
+                  sender: 'bot'
+                };
+                setMessages(prev => [...prev, botMessage]);
+                return;
+              }
+            }
+
+            // Save mood data to backend for tracking (best-effort)
+            try {
+              if (!emotionData.saved) {
+                await saveMoodData({
+                  emotion: emotionData.emotion,
+                  emotion_score: emotionData.emotion_score || 7,
+                  notes: 'Detected from photo during chat'
+                });
+                console.log('Mood data saved (client->user-service)');
+              } else {
+                console.log('Server already saved mood (skipping client save)');
+              }
+            } catch (e) {
+              console.warn('Failed to save mood data, continuing:', e);
+            }
+
+            // Emotion detected — ask chat service for a friendly reply. Use fallback if chat fails
+            try {
+              const aiResponse = await fetch(API_ENDPOINTS.CHAT, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  message: `I just shared my photo. How do I look?`,
+                  mood: emotionData.emotion
+                }),
+              });
+
+              const aiData = await aiResponse.json();
+              const replyText = aiData && aiData.reply ? aiData.reply : "Nice photo! How are you feeling today?";
+
+              const botMessage = {
+                id: Date.now().toString() + '_bot',
+                text: replyText,
+                sender: 'bot',
+              };
+              setMessages(prev => [...prev, botMessage]);
+
+            } catch (err) {
+              console.error('AI reply failed, using fallback:', err);
+              const botMessage = {
+                id: Date.now().toString() + '_bot_fallback',
+                text: "Nice photo! How are you feeling today? 😊",
+                sender: 'bot',
+              };
+              setMessages(prev => [...prev, botMessage]);
+            }
+
           } catch (error) {
             console.error('Error analyzing emotion:', error);
-            Alert.alert('Error', 'Could not analyze emotion from photo');
+            const botMessage = {
+              id: Date.now().toString() + '_bot_fallback',
+              text: "Couldn't analyze the photo right now — please try again in a moment.",
+              sender: 'bot'
+            };
+            setMessages(prev => [...prev, botMessage]);
           }
         }
       });
@@ -322,7 +470,19 @@ const ChatScreen = () => {
         console.log('Gallery Error:', response.errorMessage);
         Alert.alert('Error', 'Could not open gallery');
       } else if (response.assets && response.assets.length > 0) {
-        const source = { uri: response.assets[0].uri };
+        const asset = response.assets[0];
+        const mimeType = asset.type || '';
+        const fileName = asset.fileName || asset.uri || '';
+        const ext = (fileName.split('.').pop() || '').toLowerCase();
+
+        if (!mimeType.startsWith('image/') && !['jpg','jpeg','png','heic','webp'].includes(ext)) {
+          console.warn('Selected non-image from gallery:', asset);
+          const botMessage = { id: Date.now().toString() + '_bot_invalid', text: 'තෝරපු ෆයිල් එක image එකක් නෙවෙයි — කරුණාකර jpg/png ෆොටෝ තෝරන්න.', sender: 'bot' };
+          setMessages(prev => [...prev, botMessage]);
+          return;
+        }
+
+        const source = { uri: asset.uri };
         const photoMessage = {
           id: Date.now().toString() + '_photo',
           image: source.uri,
@@ -351,16 +511,23 @@ const ChatScreen = () => {
           <Text style={styles.headerRefreshText}>🔄 Refresh</Text>
         </TouchableOpacity>
 
-        <View style={{ flex: 1, alignItems: 'center' }}>
+        <View style={styles.headerCenter}>
           <Text style={styles.headerTitle}>Chat with SoulBuddy</Text>
 
           {todayMoods && todayMoods.length > 0 ? (
             (() => {
               const lastMood = todayMoods[todayMoods.length - 1];
+              const { getColomboHour, getGreetingForHour } = require('../../../utils/time');
+              const moodTs = lastMood.created_at || lastMood.timestamp || lastMood.time;
+              const moodHour = moodTs ? getColomboHour(moodTs) : getColomboHour(new Date());
+              const moodGreeting = getGreetingForHour(moodHour);
               return (
                 <View style={styles.moodChip}>
                   <Text style={styles.moodText}>{lastMood.emotion || 'Unknown'}</Text>
-                  <Text style={styles.moodTime}>{formatTime(lastMood.created_at || lastMood.timestamp || lastMood.time)}</Text>
+                  <View style={styles.moodRow}>
+                    <Text style={styles.moodGreeting}>{moodGreeting}</Text>
+                    <Text style={styles.moodTime}>{formatTime(moodTs)}</Text>
+                  </View>
                 </View>
               );
             })()
@@ -456,6 +623,10 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontWeight: '600',
   },
+  headerCenter: {
+    flex: 1,
+    alignItems: 'center',
+  },
   headerSpacer: {
     width: 80,
   },
@@ -469,6 +640,8 @@ const styles = StyleSheet.create({
     borderRadius: 12,
   },
   moodText: { color: '#007AFF', fontWeight: '600', marginRight: 8 },
+  moodGreeting: { color: '#444', fontSize: 12, marginRight: 8, fontStyle: 'italic' },
+  moodRow: { flexDirection: 'row', alignItems: 'center' },
   moodTime: { color: '#666', fontSize: 12 },
   moodPlaceholder: { color: '#888', fontSize: 12, marginTop: 6 },
   bubble: {

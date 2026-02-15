@@ -61,15 +61,6 @@ const HomeScreen = () => {
     })
   ).current;
 
-  useEffect(() => {
-    // Defer loading until after navigation animation
-    const task = InteractionManager.runAfterInteractions(() => {
-      load();
-    });
-
-    return () => task.cancel();
-  }, []);
-
   const load = useCallback(async () => {
     // Check cache first
     const cachedName = await AsyncStorage.getItem('cached_user_name');
@@ -79,12 +70,9 @@ const HomeScreen = () => {
     // Use cache if less than 5 minutes old
     if (cachedName && cacheTime && (now - parseInt(cacheTime, 10)) < 300000) {
         setName(cachedName);
-        const h = new Date().getHours();
-        if (h < 6) setGreeting('Good early morning');
-        else if (h < 12) setGreeting('Good morning');
-        else if (h < 17) setGreeting('Good afternoon');
-        else if (h < 21) setGreeting('Good evening');
-        else setGreeting('Hello');
+        const { getColomboHour, getGreetingForHour } = require('../../../utils/time');
+        const ch = getColomboHour(new Date());
+        setGreeting(getGreetingForHour(ch));
         setLoading(false);
         return;
       }
@@ -106,7 +94,8 @@ const HomeScreen = () => {
             const data = await res.json();
             if (data.full_name) displayName = data.full_name;
           }
-        } catch (e) {
+        } catch (err) {
+          console.warn('Failed to fetch profile:', err);
           // Use cached or email if fetch fails
           if (cachedName) displayName = cachedName;
         }
@@ -117,14 +106,21 @@ const HomeScreen = () => {
       await AsyncStorage.setItem('cache_time', now.toString());
       setName(displayName);
 
-      const h = new Date().getHours();
-      if (h < 6) setGreeting('Good early morning');
-      else if (h < 12) setGreeting('Good  morning');
-      else if (h < 17) setGreeting('Good afternoon');
-      else if (h < 21) setGreeting('Good evening');
-      else setGreeting('Hello');
+      // Use Colombo time for greetings
+      const { getColomboHour, getGreetingForHour } = require('../../../utils/time');
+      const h = getColomboHour(new Date());
+      setGreeting(getGreetingForHour(h));
       setLoading(false);
   }, []);
+
+  useEffect(() => {
+    // Defer loading until after navigation animation
+    const task = InteractionManager.runAfterInteractions(() => {
+      load();
+    });
+
+    return () => task.cancel();
+  }, [load]);
 
   useEffect(() => {
     if (!loading) {
@@ -172,7 +168,7 @@ const HomeScreen = () => {
 
   return (
     <LinearGradient
-      colors={['#E3F2FD', '#BBDEFB', '#90CAF9']}
+      colors={['#2344da', '#6b75d1', '#ffffff']}
       style={styles.container}
       start={{ x: 0, y: 0 }}
       end={{ x: 1, y: 1 }}
@@ -272,7 +268,7 @@ const styles = StyleSheet.create({
   warningText: {
     fontSize: 28,
     fontWeight: '700',
-    color: '#D32F2F',
+    color: '#ffffff',
     marginBottom: 30,
     textAlign: 'center',
     letterSpacing: 0.5,
@@ -354,7 +350,7 @@ const styles = StyleSheet.create({
     width: 80,
     height: 80,
     borderRadius: 40,
-    backgroundColor: '#1976D2',
+    backgroundColor: '#003cff',
     justifyContent: 'center',
     alignItems: 'center',
     shadowColor: '#1976D2',

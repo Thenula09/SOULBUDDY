@@ -160,7 +160,7 @@ export class AuthService {
     try {
       const token = await this.getToken();
       return !!token;
-    } catch (error) {
+    } catch {
       return false;
     }
   }
