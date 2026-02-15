@@ -24,10 +24,11 @@ export const chooseStyles = StyleSheet.create({
     zIndex: 1,
   },
   title: {
-    fontSize: 26,
+    fontSize: 36,
     fontWeight: '700',
-    color: '#1a1a1a',
-    marginBottom: 32,
+    color: '#ffffff',
+    marginTop: -90,
+    marginBottom: 192,
     textAlign: 'center',
   },
   option: {
@@ -36,7 +37,7 @@ export const chooseStyles = StyleSheet.create({
     paddingVertical: 14,
     paddingHorizontal: 16,
     marginTop: 16,
-    backgroundColor: '#FF0000', // match Login primary button
+    backgroundColor: '#0028c7', // match Login primary button
     borderWidth: 0,
     alignItems: 'center',
     marginBottom: 16,
@@ -54,7 +55,7 @@ export const chooseStyles = StyleSheet.create({
   },
   linkText: {
     fontSize: 16,
-    color: '#FF0000',
+    color: '#0017e8',
     textAlign: 'center',
     marginTop: 24,
     fontWeight: '500',
