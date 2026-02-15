@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Dimensions, Platform } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, Dimensions, Platform } from 'react-native';
 import { PieChart } from 'react-native-chart-kit';
 
 const MOCK_STATS = {
@@ -84,8 +84,10 @@ const LifestyleScreen: React.FC = () => {
       setLifestyleEntries(persistedEntries);
       setWeekSummary(weekJson || {});
 
+
+
       // build pie data from today's moods
-      const counts: Record<string, number> = {};
+      const counts: Record<string, number> = {}; 
       moodsToday.forEach((m: any) => {
         const k = (m.emotion || 'Other');
         counts[k] = (counts[k] || 0) + 1;
@@ -121,29 +123,12 @@ const LifestyleScreen: React.FC = () => {
 
   React.useEffect(() => { fetchData(); }, [fetchData]);
 
-  const onQuickAction = async (type: 'sleep'|'exercise'|'hydration') => {
-    try {
-      const uid = await AsyncStorage.getItem('user_id') || '1';
-      const body: any = { user_id: Number(uid) };
-      if (type === 'sleep') body.sleep_hours = 7;
-      if (type === 'exercise') body.exercise_minutes = 20;
-      if (type === 'hydration') body.water_glasses = 1;
-
-      const res = await fetch(`${API_HOST}/api/lifestyle/log`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
-      const json = res.ok ? await res.json() : { ok: false };
-
-      // If entry was only stored in-memory (dev fallback), inform via console and do not surface it in the persisted list
-      if (json.source && json.source !== 'supabase') {
-        console.warn('Lifestyle entry saved to memory only (not persisted to DB)');
-      }
-
-      await fetchData();
-    } catch (e) { console.error(e); }
-  };
-
   return (
     <ScrollView contentContainerStyle={styles.container}>
-      <Text style={styles.header}>Lifestyle</Text>
+      <View style={styles.titleContainer}>
+        <Text style={styles.title}>Lifestyle & Well‑being</Text>
+        <Text style={styles.subtitle}>Track your mood, sleep and activity — small wins add up</Text>
+      </View>
 
       <View style={styles.statsRow}>
         <View style={styles.statCard}>
@@ -191,15 +176,9 @@ const LifestyleScreen: React.FC = () => {
         </View>
       </View>
 
-      <View style={styles.card}>
-        <Text style={styles.cardTitle}>Quick Actions</Text>
-        <View style={styles.actionsRow}>
-          <TouchableOpacity onPress={() => onQuickAction('sleep')} style={styles.actionBtn}><Text style={styles.actionText}>Log Sleep</Text></TouchableOpacity>
-          <TouchableOpacity onPress={() => onQuickAction('exercise')} style={styles.actionBtn}><Text style={styles.actionText}>Log Exercise</Text></TouchableOpacity>
-          <TouchableOpacity onPress={() => onQuickAction('hydration')} style={styles.actionBtn}><Text style={styles.actionText}>Hydration</Text></TouchableOpacity>
-        </View>
-        <Text style={styles.note}>Data shown below is read from central DB (mood history) and local lifestyle entries.</Text>
-      </View>
+
+
+
 
       <View style={styles.card}>
         <Text style={styles.cardTitle}>Recent lifestyle entries</Text>
@@ -222,21 +201,21 @@ const LifestyleScreen: React.FC = () => {
 };
 
 const styles = StyleSheet.create({
-  container: { padding: 16, paddingBottom: 40, backgroundColor: '#fff' },
-  header: { fontSize: 20, fontWeight: '700', marginBottom: 12, color: '#222' },
+  container: { padding: 20, paddingBottom: 40, backgroundColor: '#F4F6FB' },
+  titleContainer: { marginBottom: 12, paddingHorizontal: 4 },
+  title: { fontSize: 24, fontWeight: '800', color: '#0F172A', marginBottom: 4 },
+  subtitle: { fontSize: 13, color: '#60708A' },
   statsRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 16 },
-  statCard: { flex: 1, padding: 12, marginHorizontal: 6, backgroundColor: '#f6f9ff', borderRadius: 10, alignItems: 'center' },
-  statLabel: { fontSize: 12, color: '#666' },
-  statValue: { fontSize: 20, fontWeight: '700', color: '#111', marginTop: 6 },
-  card: { backgroundColor: '#fff', borderRadius: 12, padding: 12, marginBottom: 12, shadowColor: '#000', shadowOpacity: 0.05, shadowRadius: 6, elevation: 2 },
+  statCard: { flex: 1, padding: 14, marginHorizontal: 6, backgroundColor: '#fff', borderRadius: 12, alignItems: 'center', shadowColor: '#000', shadowOpacity: 0.06, shadowOffset: { width: 0, height: 3 }, shadowRadius: 8, elevation: 3, borderWidth: 1, borderColor: '#EEF2F6' },
+  statLabel: { fontSize: 12, color: '#94A3B8' },
+  statValue: { fontSize: 22, fontWeight: '800', color: '#0F172A', marginTop: 6 },
+  card: { backgroundColor: '#fff', borderRadius: 14, padding: 14, marginBottom: 12, shadowColor: '#000', shadowOpacity: 0.05, shadowRadius: 10, elevation: 3 },
   cardTitle: { fontSize: 14, fontWeight: '600', marginBottom: 8 },
   timelineRow: { flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between' },
   timelineItem: { alignItems: 'center', width: 36, marginHorizontal: 4 },
   bar: { width: 18, backgroundColor: '#4CAF50', borderRadius: 4 },
   time: { fontSize: 9, color: '#777', marginTop: 6 },
-  actionsRow: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 8 },
-  actionBtn: { flex: 1, marginHorizontal: 6, paddingVertical: 10, borderRadius: 8, backgroundColor: '#007AFF', alignItems: 'center' },
-  actionText: { color: '#fff', fontWeight: '600' },
+
   note: { marginTop: 8, fontSize: 12, color: '#666' },
   emptyText: { color: '#888', fontSize: 12, textAlign: 'center', paddingVertical: 12 },
   emptyTextError: { color: '#c0392b' },

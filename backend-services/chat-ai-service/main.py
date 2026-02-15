@@ -77,25 +77,37 @@ def save_mood_to_database(user_id: int, emotion: str, confidence: float, source:
         if mood_trend:
             data["mood_trend"] = mood_trend
             
-        # Add emotion score (1-10 scale) for compatibility
-        emotion_score = int(confidence * 10)
-        data["emotion_score"] = emotion_score
-        
-        print(f"💾 Saving mood data: user_id={user_id}, emotion={emotion}, score={emotion_score}, source={source}")
+        # Do not send non-existent columns — send confidence only (Supabase schema may differ)
+        print(f"💾 Saving mood data: user_id={user_id}, emotion={emotion}, confidence={confidence:.2f}, source={source}")
         print(f"🕐 Timestamp (UTC): {data['created_at']}")
-        
+
         response = requests.post(
             f"{SUPABASE_URL}/rest/v1/mood_history",
             headers=headers,
             json=data,
             timeout=10
         )
-        
+
+        # If Supabase rejects because of a missing column (schema mismatch), log and return False
         if response.status_code in [200, 201]:
             print(f"✅ Mood saved to database: user_id={user_id}, emotion={emotion} ({confidence:.2f}) from {source}")
             return True
         else:
-            print(f"⚠️ Failed to save mood: {response.status_code} - {response.text}")
+            # If Supabase complains about an unknown column, try to retry without optional fields
+            text = response.text or ''
+            if response.status_code == 400 and 'Could not find the' in text:
+                print(f"⚠️ Supabase schema mismatch while saving mood: {text}. Will retry without optional fields.")
+                # remove optional photo/details fields and retry with minimal payload
+                minimal = {k: data[k] for k in ('user_id', 'emotion', 'confidence', 'source', 'created_at') if k in data}
+                r2 = requests.post(f"{SUPABASE_URL}/rest/v1/mood_history", headers=headers, json=minimal, timeout=10)
+                if r2.status_code in [200, 201]:
+                    print(f"✅ Mood saved to database (minimal payload): user_id={user_id}, emotion={emotion}")
+                    return True
+                else:
+                    print(f"⚠️ Retry failed: {r2.status_code} - {r2.text}")
+                    return False
+
+            print(f"⚠️ Failed to save mood: {response.status_code} - {text}")
             return False
             
     except Exception as e:
@@ -130,12 +142,32 @@ def save_chat_to_database(user_id: int, user_message: str, ai_reply: str, ai_emo
             json=data,
             timeout=10
         )
-        
+
         if response.status_code in [200, 201]:
             print(f"✅ Chat saved to database: user_id={user_id}, ai_emotion={ai_emotion}")
             return True
         else:
-            print(f"⚠️ Failed to save chat: {response.status_code} - {response.text}")
+            # If the chat_history table doesn't exist (404), fall back to a local append file so chats are not lost in dev
+            text = response.text or ''
+            if response.status_code == 404 and 'Could not find the table' in text:
+                try:
+                    local_path = os.path.join(os.path.dirname(__file__), 'local_chat_history.jsonl')
+                    with open(local_path, 'a', encoding='utf-8') as f:
+                        f.write(json.dumps({
+                            'user_id': user_id,
+                            'user_message': user_message,
+                            'ai_reply': ai_reply,
+                            'ai_emotion': ai_emotion,
+                            'user_mood': user_mood,
+                            'created_at': data['created_at']
+                        }, ensure_ascii=False) + "\n")
+                    print(f"✅ Chat appended to local file: {local_path}")
+                    return True
+                except Exception as e:
+                    print(f"❌ Failed to write local chat fallback: {e}")
+                    return False
+
+            print(f"⚠️ Failed to save chat: {response.status_code} - {text}")
             return False
             
     except Exception as e:
