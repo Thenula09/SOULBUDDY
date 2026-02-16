@@ -167,19 +167,19 @@ const Login: React.FC<AuthScreenProps> = ({ navigation }) => {
 
             <View style={loginStyles.socialRow}>
               <TouchableOpacity
-                style={loginStyles.socialBtn}
+                style={loginStyles.socialIconBtn}
                 onPress={() => Alert.alert('Info', 'Facebook login is not configured yet')}
+                accessibilityLabel="Sign in with Facebook"
               >
                 <Text style={loginStyles.socialIcon}>f</Text>
-                <Text style={loginStyles.socialBtnText}>Facebook</Text>
               </TouchableOpacity>
 
               <TouchableOpacity
-                style={loginStyles.socialBtn}
+                style={loginStyles.socialIconBtn}
                 onPress={() => Alert.alert('Info', 'Google login is not configured yet')}
+                accessibilityLabel="Sign in with Google"
               >
                 <Text style={loginStyles.socialIcon}>G</Text>
-                <Text style={loginStyles.socialBtnText}>Google</Text>
               </TouchableOpacity>
             </View>
           </View>
