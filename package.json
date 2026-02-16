@@ -10,7 +10,9 @@
     "test": "jest",
     "services:start": "bash scripts/start-services.sh",
     "services:stop": "bash scripts/stop-services.sh",
-    "services:logs": "bash scripts/logs-services.sh"
+    "services:logs": "bash scripts/logs-services.sh",
+"fetch-fonts": "mkdir -p ./assets/fonts && curl -L -o ./assets/fonts/DynaPuff-Variable.ttf 'https://raw.githubusercontent.com/google/fonts/main/ofl/dynapuff/DynaPuff%5Bwdth,wght%5D.ttf'",
+    "link-fonts": "npx react-native link"
   },
   "dependencies": {
     "@react-native-async-storage/async-storage": "^1.24.0",

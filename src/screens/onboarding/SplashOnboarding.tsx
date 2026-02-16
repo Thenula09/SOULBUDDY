@@ -46,6 +46,7 @@ const SplashOnboarding: React.FC<OnboardingScreenProps> = ({ navigation }) => {
       <Animated.View style={[styles.centerContainer, { opacity: fade }]}>
         <Text style={styles.title}>SoulBuddy</Text>
         <Text style={styles.subtitle}>your empathetic companion</Text>
+        <Text style={styles.fontCredit}>DynaPuff — Designed by Toshi Omagari & Jennifer Daniel</Text>
 
         <View style={styles.dotsRow}>
           {dotAnims.map((a, i) => (
@@ -84,20 +85,28 @@ const styles = StyleSheet.create({
   },
   title: {
     color: '#FFFFFF',
-    fontSize: 48,
+    fontSize: 56,
+    fontFamily: 'DynaPuff',
     fontWeight: '800',
     letterSpacing: 2,
     textAlign: 'center',
     textShadowColor: 'rgba(255, 255, 255, 0.08)',
     textShadowOffset: { width: 0, height: 6 },
     textShadowRadius: 20,
-    marginBottom: 12,
+    marginBottom: 6,
   },
   subtitle: {
     color: '#FFFFFF',
     fontSize: 14,
-    marginBottom: 28,
+    marginBottom: 8,
     textAlign: 'center',
+  },
+  fontCredit: {
+    color: 'rgba(255,255,255,0.85)',
+    fontSize: 11,
+    marginTop: 8,
+    textAlign: 'center',
+    fontStyle: 'italic',
   },
   dotsRow: {
     flexDirection: 'row',
