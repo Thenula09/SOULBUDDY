@@ -47,7 +47,7 @@ export const onboarding3Styles = StyleSheet.create({
     fontWeight: '600',
   },
   button: {
-    backgroundColor: '#FF0000',
+    backgroundColor: '#004cff',
     paddingVertical: 18,
     borderRadius: 25,
     marginBottom: 15,
@@ -66,7 +66,7 @@ export const onboarding3Styles = StyleSheet.create({
   },
   secondaryButton: {
     backgroundColor: 'transparent',
-    borderColor: '#FF0000',
+    borderColor: '#0000ff',
     borderWidth: 2,
     paddingVertical: 16,
     borderRadius: 25,

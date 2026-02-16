@@ -146,7 +146,7 @@ export const registerStyles = StyleSheet.create({
     paddingVertical: 14,
     paddingHorizontal: 16,
     marginTop: 26,
-    backgroundColor: 'rgba(255, 0, 0, 0.6)',
+    backgroundColor: '#2011F9',
     borderWidth: 0,
     alignItems: 'center',
     ...Platform.select({

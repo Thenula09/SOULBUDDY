@@ -6,12 +6,13 @@ import {
   TouchableOpacity,
   Alert,
   ScrollView,
+  Image,
+  Linking,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { AuthScreenProps } from '../../../types/navigation';
 import { loginStyles } from './styles';
 import LoginBackground from './LoginBackground';
-import { API_ENDPOINTS, fetchWithTimeout } from '../../../config/api';
 import { profileService } from '../../../services/api';
 
 const Login: React.FC<AuthScreenProps> = ({ navigation }) => {
@@ -99,6 +100,20 @@ const Login: React.FC<AuthScreenProps> = ({ navigation }) => {
     }
   };
 
+  const openExternal = async (url: string) => {
+    try {
+      const supported = await Linking.canOpenURL(url);
+      if (supported) {
+        await Linking.openURL(url);
+      } else {
+        Alert.alert('Error', `Cannot open URL: ${url}`);
+      }
+    } catch (err) {
+      console.warn('openExternal error', err);
+      Alert.alert('Error', 'Unable to open link');
+    }
+  };
+
   return (
     <>
       <LoginBackground />
@@ -168,18 +183,26 @@ const Login: React.FC<AuthScreenProps> = ({ navigation }) => {
             <View style={loginStyles.socialRow}>
               <TouchableOpacity
                 style={loginStyles.socialIconBtn}
-                onPress={() => Alert.alert('Info', 'Facebook login is not configured yet')}
+                onPress={() => openExternal('https://www.facebook.com')}
                 accessibilityLabel="Sign in with Facebook"
               >
-                <Text style={loginStyles.socialIcon}>f</Text>
+                <Image
+                  source={require('../../../assets/facebook.png')}
+                  style={loginStyles.socialIconImageOnly}
+                  resizeMode="contain"
+                />
               </TouchableOpacity>
 
               <TouchableOpacity
                 style={loginStyles.socialIconBtn}
-                onPress={() => Alert.alert('Info', 'Google login is not configured yet')}
+                onPress={() => openExternal('https://accounts.google.com')}
                 accessibilityLabel="Sign in with Google"
               >
-                <Text style={loginStyles.socialIcon}>G</Text>
+                <Image
+                  source={require('../../../assets/google.png')}
+                  style={loginStyles.socialIconImageOnly}
+                  resizeMode="contain"
+                />
               </TouchableOpacity>
             </View>
           </View>

@@ -46,7 +46,6 @@ const SplashOnboarding: React.FC<OnboardingScreenProps> = ({ navigation }) => {
       <Animated.View style={[styles.centerContainer, { opacity: fade }]}>
         <Text style={styles.title}>SOULBUDDY</Text>
         <Text style={styles.subtitle}>your empathetic companion</Text>
-        <Text style={styles.fontCredit}>DynaPuff — Designed by Toshi Omagari & Jennifer Daniel</Text>
 
         <View style={styles.dotsRow}>
           {dotAnims.map((a, i) => (

@@ -188,6 +188,11 @@ export const loginStyles = StyleSheet.create({
   line: { flex: 1, height: 1, backgroundColor: 'rgba(0,0,0,0.08)' },
   orText: { marginHorizontal: 12, color: '#8a8a8a', fontSize: 12, fontWeight: '600' },
   socialRow: { flexDirection: 'row', justifyContent: 'center', gap: 12 },
-  socialIconBtn: { width: 52, height: 52, borderRadius: 26, alignItems: 'center', justifyContent: 'center', backgroundColor: '#2011F9' },
-  socialIcon: { color: '#ffffff', fontSize: 20, marginRight: 0, fontWeight: '700' },
+  socialBtn: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingVertical: 12, borderRadius: 999, backgroundColor: '#2011F9', marginHorizontal: 6 },
+  socialIcon: { color: '#ffffff', fontSize: 16, marginRight: 8, fontWeight: '700' },
+  socialIconImage: { width: 18, height: 18, marginRight: 8 },
+  /* icon-only social button (Google) */
+  socialIconBtn: { width: 54, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center', backgroundColor: 'transparent', marginHorizontal: 6 },
+  socialIconImageOnly: { width: 30, height: 30 },
+  socialBtnText: { color: '#ffffff', fontWeight: '600' },
 });

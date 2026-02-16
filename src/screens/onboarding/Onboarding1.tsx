@@ -75,10 +75,6 @@ const Onboarding1: React.FC<OnboardingScreenProps> = ({ navigation }) => {
         <TouchableOpacity style={onboarding1Styles.button} onPress={() => navigation.navigate('Onboarding2')}>
           <Text style={onboarding1Styles.buttonText}>Next</Text>
         </TouchableOpacity>
-        
-        <TouchableOpacity style={onboarding1Styles.directButton} onPress={() => navigation.navigate('Register')}>
-          <Text style={onboarding1Styles.directButtonText}>Get Started Now</Text>
-        </TouchableOpacity>
       </Animated.View>
     </Animated.View>
   );
