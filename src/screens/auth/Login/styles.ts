@@ -129,7 +129,7 @@ export const loginStyles = StyleSheet.create({
   forgotLink: {
     textAlign: 'right',
     fontSize: 12,
-    color: '#FF0000',
+    color: '#2011F9',
     marginTop: 6,
     marginBottom: 8,
   },
@@ -139,7 +139,7 @@ export const loginStyles = StyleSheet.create({
     paddingVertical: 14,
     paddingHorizontal: 16,
     marginTop: 26,
-    backgroundColor: '#FF0000',
+    backgroundColor: '#2011F9',
     borderWidth: 0,
     alignItems: 'center',
     ...Platform.select({
@@ -171,7 +171,7 @@ export const loginStyles = StyleSheet.create({
   },
   footerLink: {
     fontWeight: '600',
-    color: '#FF0000',
+    color: '#2011F9',
   },
   adminLinkContainer: {
     paddingVertical: 12,
@@ -179,7 +179,7 @@ export const loginStyles = StyleSheet.create({
   },
   adminLink: {
     fontSize: 12,
-    color: '#FF0000',
+    color: '#2011F9',
     textDecorationLine: 'underline',
   },
   demoLinkContainer: {

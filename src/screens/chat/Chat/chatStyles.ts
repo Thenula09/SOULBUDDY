@@ -64,7 +64,7 @@ export const chatStyles = StyleSheet.create({
     fontSize: 16,
   },
   sendButton: {
-    backgroundColor: '#FF0000',
+    backgroundColor: '#2011F9',
     borderRadius: 20,
     paddingHorizontal: 20,
     paddingVertical: 10,

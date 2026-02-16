@@ -20,7 +20,7 @@ const LoginBackground: React.FC = () => {
         />
         <Path
           fillRule="evenodd"
-          fill="#FF0000"
+          fill="#2011F9"
           d="m116 13.7h848.8c55.2 0 100 44.8 100 100v943.1c0 55.2-44.8 100-100 100h-848.8c-55.2 0-100-44.8-100-100v-943.1c0-55.2 44.8-100 100-100z"
         />
         <Path

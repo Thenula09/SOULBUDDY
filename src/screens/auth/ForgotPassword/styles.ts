@@ -114,7 +114,7 @@ export const forgotStyles = StyleSheet.create({
     paddingVertical: 14,
     paddingHorizontal: 16,
     marginTop: 26,
-    backgroundColor: '#FF0000',
+    backgroundColor: '#2011F9',
     borderWidth: 0,
     alignItems: 'center',
     ...Platform.select({
@@ -136,7 +136,7 @@ export const forgotStyles = StyleSheet.create({
   },
   linkText: {
     fontSize: 13,
-    color: '#FF0000',
+    color: '#2011F9',
     textAlign: 'center',
     marginTop: 16,
     fontWeight: '500',
@@ -153,6 +153,6 @@ export const forgotStyles = StyleSheet.create({
   },
   footerLink: {
     fontWeight: '600',
-    color: '#FF0000',
+    color: '#2011F9',
   },
 });

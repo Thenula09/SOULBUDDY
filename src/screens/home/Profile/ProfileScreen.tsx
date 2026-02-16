@@ -482,7 +482,7 @@ const styles = StyleSheet.create({
   },
   sectionTitle: { fontSize: 16, fontWeight: '600', color: '#1a1a1a', marginBottom: 12 },
   sectionHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 },
-  counter: { fontSize: 14, fontWeight: '500', color: '#FF0000' },
+  counter: { fontSize: 14, fontWeight: '500', color: '#2011F9' },
   missingBanner: { backgroundColor: '#FFF4E5', borderRadius: 8, padding: 10, marginBottom: 12, borderWidth: 1, borderColor: '#FFD8A8' },
   missingBannerText: { color: '#8A4B00', fontSize: 13 },
   
@@ -499,7 +499,7 @@ const styles = StyleSheet.create({
     width: 28,
     height: 28,
     borderRadius: 14,
-    backgroundColor: '#FF0000',
+    backgroundColor: '#2011F9',
     justifyContent: 'center',
     alignItems: 'center',
     borderWidth: 2,
@@ -513,23 +513,23 @@ const styles = StyleSheet.create({
   // Gender Buttons
   rowWithGap: { flexDirection: 'row', gap: 8 },
   smallBtn: { flex: 1, padding: 10, borderRadius: 8, borderWidth: 1, borderColor: '#e0e7ff', backgroundColor: '#fff', alignItems: 'center' },
-  smallBtnActive: { backgroundColor: '#FF0000', borderColor: '#FF0000' },
+  smallBtnActive: { backgroundColor: '#2011F9', borderColor: '#2011F9' },
   smallBtnText: { fontSize: 14, color: '#1a1a1a' },
   smallBtnTextActive: { fontSize: 14, color: '#fff', fontWeight: '600' },
   
   // Chips
   wrapRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 12 },
   hobbyChip: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 16, borderWidth: 1, borderColor: '#e0e7ff', backgroundColor: '#fff' },
-  hobbyChipActive: { backgroundColor: '#FF0000', borderColor: '#FF0000' },
+  hobbyChipActive: { backgroundColor: '#2011F9', borderColor: '#2011F9' },
   condChip: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 16, borderWidth: 1, borderColor: '#e0e7ff', backgroundColor: '#fff' },
-  condChipActive: { backgroundColor: '#FF0000', borderColor: '#FF0000' },
+  condChipActive: { backgroundColor: '#2011F9', borderColor: '#2011F9' },
   chipText: { fontSize: 13, color: '#1a1a1a' },
   chipTextActive: { fontSize: 13, color: '#fff', fontWeight: '600' },
   
   // Input Row
   inputRow: { flexDirection: 'row', gap: 8, alignItems: 'center' },
   input: { flex: 1, borderWidth: 1, borderColor: '#e0e7ff', backgroundColor: '#f8f9ff', padding: 10, borderRadius: 8, fontSize: 14 },
-  addBtn: { width: 40, height: 40, borderRadius: 8, backgroundColor: '#FF0000', justifyContent: 'center', alignItems: 'center' },
+  addBtn: { width: 40, height: 40, borderRadius: 8, backgroundColor: '#2011F9', justifyContent: 'center', alignItems: 'center' },
   addBtnText: { color: '#fff', fontSize: 20, fontWeight: '600' },
   
   // New text input styles
@@ -537,11 +537,11 @@ const styles = StyleSheet.create({
   halfField: { flex: 1, marginHorizontal: 4 },
   
   // Action Buttons
-  actionBtn: { backgroundColor: '#FF0000', padding: 14, borderRadius: 8, marginBottom: 8, alignItems: 'center' },
+  actionBtn: { backgroundColor: '#2011F9', padding: 14, borderRadius: 8, marginBottom: 8, alignItems: 'center' },
   serverSaveBtn: { backgroundColor: '#2B8A3E' },
-  clearBtn: { backgroundColor: '#fff', borderWidth: 1, borderColor: '#FF6B6B' },
+  clearBtn: { backgroundColor: '#fff', borderWidth: 1, borderColor: '#2011F9' },
   actionBtnText: { color: '#fff', fontSize: 15, fontWeight: '600' },
-  clearBtnText: { color: '#FF6B6B', fontSize: 15, fontWeight: '600' },
+  clearBtnText: { color: '#2011F9', fontSize: 15, fontWeight: '600' },
   logoutBtn: { backgroundColor: '#444', marginTop: 8 }
 });
 
