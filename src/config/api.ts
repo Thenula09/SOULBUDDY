@@ -1,7 +1,7 @@
 // API Configuration
 export const API_CONFIG = {
   USER_SERVICE: 'http://10.0.2.2:8004',
-  CHAT_SERVICE: 'http://10.0.2.2:8002',
+  CHAT_SERVICE: 'http://10.0.2.2:8003',
   MOOD_SERVICE: 'http://10.0.2.2:8003',
   
   // Timeouts in milliseconds
@@ -63,6 +63,7 @@ export const API_ENDPOINTS = {
   RESET_CHAT: `${API_CONFIG.CHAT_SERVICE}/api/v1/reset-chat`,
   ANALYZE_EMOTION: `${API_CONFIG.CHAT_SERVICE}/api/v1/analyze-emotion`,
   ANALYZE_PHOTO: `${API_CONFIG.CHAT_SERVICE}/analyze-photo-emotion`,
+  SAVE_MOOD: `${API_CONFIG.CHAT_SERVICE}/api/v1/save-mood`,
   
   // Admin
   ADMIN_USERS: `${API_CONFIG.USER_SERVICE}/admin/online-users`,

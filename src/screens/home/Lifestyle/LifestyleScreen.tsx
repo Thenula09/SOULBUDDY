@@ -30,7 +30,8 @@ const LifestyleScreen: React.FC = () => {
   const [_loading, setLoading] = React.useState<boolean>(true);
   const [isUnauth, setIsUnauth] = React.useState<boolean>(false);
 
-  const API_HOST = Platform.OS === 'android' ? 'http://10.0.2.2:8000' : 'http://10.190.154.90:8000';
+  // For local development: Android emulator -> direct lifestyle service (bypass gateway)
+  const API_HOST = Platform.OS === 'android' ? 'http://10.0.2.2:8005' : 'http://10.190.154.90:8000';
 
   const fetchData = React.useCallback(async () => {
     try {
@@ -48,11 +49,12 @@ const LifestyleScreen: React.FC = () => {
       const headers: any = { 'Content-Type': 'application/json' };
       headers.Authorization = `Bearer ${accessToken}`;
 
-      const [todayRes, lastRes, entriesRes, weekRes] = await Promise.all([
+      const [todayRes, lastRes, entriesRes, weekRes, chartsRes] = await Promise.all([
         fetch(`${API_HOST}/api/lifestyle/moods/today/${uid}`, { headers }),
         fetch(`${API_HOST}/api/lifestyle/moods/last/${uid}?limit=7`, { headers }),
         fetch(`${API_HOST}/api/lifestyle/${uid}`, { headers }),
         fetch(`${API_HOST}/api/lifestyle/week/${uid}`, { headers }),
+        fetch(`${API_HOST}/api/lifestyle/moods/combined-charts/${uid}`, { headers }),
       ]);
 
       const unauth = (todayRes.status === 401 || lastRes.status === 401 || entriesRes.status === 401 || weekRes.status === 401);
@@ -63,6 +65,12 @@ const LifestyleScreen: React.FC = () => {
       let lastJson = lastRes.ok ? await lastRes.json() : { moods: [] };
       let entriesJson = entriesRes.ok ? await entriesRes.json() : { entries: [] };
       let weekJson = weekRes.ok ? await weekRes.json() : {};
+
+      // Try to read combined chart data (bar + pie) from backend
+      let combinedChartsJson: any = null;
+      if (chartsRes && chartsRes.ok) {
+        try { combinedChartsJson = await chartsRes.json(); } catch (err) { combinedChartsJson = null; }
+      }
 
       // Dev fallback: if gateway is blocking (401) and we're in dev, try direct lifestyle-service (no auth)
       if (unauth && __DEV__) {
@@ -76,16 +84,16 @@ const LifestyleScreen: React.FC = () => {
           if (directLast.ok) lastJson = await directLast.json();
           
           if (directCharts.ok) {
-            const chartData = await directCharts.json();
+            combinedChartsJson = await directCharts.json();
             // Use real pie data from combined-charts endpoint
-            setPieData(chartData.pie_data || []);
+            setPieData(combinedChartsJson.pie_data || []);
             console.info('Dev fallback: used real Supabase mood data');
           } else {
             // Fallback to demo if no real data available
             const demoFallback = await fetch(`${API_HOST.replace(/:8000$/, ':8005')}/api/demo/combined-charts/${uid}`);
             if (demoFallback.ok) {
-              const demoData = await demoFallback.json();
-              setPieData(demoData.pie_data || []);
+              combinedChartsJson = await demoFallback.json();
+              setPieData(combinedChartsJson.pie_data || []);
               console.info('Dev fallback: used demo data (no real mood data found)');
             }
           }
@@ -126,15 +134,20 @@ const LifestyleScreen: React.FC = () => {
         Other: '#FFB74D',
       };
 
-      const pie = Object.entries(counts).map(([name, population]) => ({
-        name,
-        population,
-        color: palette[name] || '#ccc',
-        legendFontColor: '#333',
-        legendFontSize: 12,
-      }));
+      // Build pie data (either from combinedCharts if available, otherwise from local counts)
+      const pie = (combinedChartsJson && combinedChartsJson.pie_data && combinedChartsJson.pie_data.length)
+        ? combinedChartsJson.pie_data
+        : Object.entries(counts).map(([name, population]) => ({
+            name,
+            population,
+            color: palette[name] || '#ccc',
+            legendFontColor: '#333',
+            legendFontSize: 12,
+          }));
 
       setPieData(pie);
+
+      // 7-day bar chart removed from UI — pie and timeline still provided by backend (no local bar state needed).
 
     } catch (e) {
       console.error('Failed to fetch lifestyle data', e);
@@ -182,6 +195,8 @@ const LifestyleScreen: React.FC = () => {
         />
       </View>
 
+
+
       <View style={styles.card}>
         <Text style={styles.cardTitle}>Today — Timeline</Text>
         <View style={styles.timelineRow}>
@@ -224,15 +239,15 @@ const LifestyleScreen: React.FC = () => {
 
 const styles = StyleSheet.create({
   container: { padding: 20, paddingBottom: 40, backgroundColor: '#F4F6FB' },
-  titleContainer: { marginBottom: 12, paddingHorizontal: 4 },
-  title: { fontSize: 24, fontWeight: '800', color: '#0F172A', marginBottom: 4 },
-  subtitle: { fontSize: 13, color: '#60708A' },
-  statsRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 16 },
+  titleContainer: { marginBottom: 16, paddingHorizontal: 4, alignItems: 'center' },
+  title: { fontSize: 26, fontWeight: '800', color: '#0F172A', marginBottom: 6, textAlign: 'center' },
+  subtitle: { fontSize: 13, color: '#60708A', textAlign: 'center', maxWidth: 560 },
+  statsRow: { flexDirection: 'row', justifyContent: 'space-around', marginBottom: 18, width: '100%' },
   statCard: { flex: 1, padding: 14, marginHorizontal: 6, backgroundColor: '#fff', borderRadius: 12, alignItems: 'center', shadowColor: '#000', shadowOpacity: 0.06, shadowOffset: { width: 0, height: 3 }, shadowRadius: 8, elevation: 3, borderWidth: 1, borderColor: '#EEF2F6' },
   statLabel: { fontSize: 12, color: '#94A3B8' },
   statValue: { fontSize: 22, fontWeight: '800', color: '#0F172A', marginTop: 6 },
   card: { backgroundColor: '#fff', borderRadius: 14, padding: 14, marginBottom: 12, shadowColor: '#000', shadowOpacity: 0.05, shadowRadius: 10, elevation: 3 },
-  cardTitle: { fontSize: 14, fontWeight: '600', marginBottom: 8 },
+  cardTitle: { fontSize: 14, fontWeight: '600', marginBottom: 8, textAlign: 'center' },
   timelineRow: { flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between' },
   timelineItem: { alignItems: 'center', width: 36, marginHorizontal: 4 },
   bar: { width: 18, backgroundColor: '#4CAF50', borderRadius: 4 },

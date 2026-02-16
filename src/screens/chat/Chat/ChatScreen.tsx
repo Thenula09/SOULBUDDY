@@ -178,7 +178,7 @@ const ChatScreen = () => {
       if (detectedEmotion !== 'Neutral') {
         try {
           // Save mood data to backend using existing userId
-          const moodResponse = await fetch('http://10.0.2.2:8002/api/v1/save-mood', {
+          const moodResponse = await fetch(API_ENDPOINTS.SAVE_MOOD, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({

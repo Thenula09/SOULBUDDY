@@ -80,66 +80,32 @@ const HomeScreen = () => {
 
       const uid = await AsyncStorage.getItem('user_id');
       const email = await AsyncStorage.getItem('user_email');
-      const userName = await AsyncStorage.getItem('user_name');
-      let displayName = userName || email || 'User';
-      
-      console.log('HomeScreen load - uid:', uid, 'email:', email, 'userName:', userName, 'displayName:', displayName);
-      
+      let displayName = email;
       if (uid) {
         try {
-          const token = await AsyncStorage.getItem('access_token');
           const controller = new AbortController();
           const timeoutId = setTimeout(() => controller.abort(), 3000);
           
-          let res;
-          if (token) {
-            res = await fetch(API_ENDPOINTS.USER_BY_ID(Number(uid)), {
-              signal: controller.signal,
-              headers: { Authorization: `Bearer ${token}` }
-            });
-          } else {
-            res = await fetch(API_ENDPOINTS.USER_BY_ID(Number(uid)), {
-              signal: controller.signal,
-            });
-          }
+          const res = await fetch(API_ENDPOINTS.USER_BY_ID(Number(uid)), {
+            signal: controller.signal,
+          });
           clearTimeout(timeoutId);
           
           if (res.ok) {
             const data = await res.json();
-            console.log('HomeScreen - user data:', data);
             if (data.full_name) displayName = data.full_name;
             else if (data.username) displayName = data.username;
-            else if (data.email) displayName = data.email;
-            
-            // Cache the name
-            await AsyncStorage.setItem('cached_user_name', displayName);
-            await AsyncStorage.setItem('cache_time', now.toString());
-            await AsyncStorage.setItem('user_name', displayName);
           }
         } catch (err) {
           console.warn('Failed to fetch profile:', err);
           // Use cached or email if fetch fails
           if (cachedName) displayName = cachedName;
-          else if (userName) displayName = userName;
-          else if (email) displayName = email;
-        }
-      } else {
-        // No user ID, try to get from Supabase auth
-        try {
-          const { supabase } = require('../../../services/supabase');
-          const { data } = await supabase.auth.getUser();
-          const sbUser: any = data?.user ?? null;
-          if (sbUser) {
-            displayName = sbUser.user_metadata?.full_name || sbUser.email || displayName;
-            await AsyncStorage.setItem('cached_user_name', displayName);
-            await AsyncStorage.setItem('cache_time', now.toString());
-            await AsyncStorage.setItem('user_name', displayName);
-          }
-        } catch (e) {
-          console.warn('Failed to get Supabase user:', e);
         }
       }
       
+      // Cache the name
+      await AsyncStorage.setItem('cached_user_name', displayName || '');
+      await AsyncStorage.setItem('cache_time', now.toString());
       setName(displayName);
 
       // Use Colombo time for greetings
@@ -154,8 +120,8 @@ const HomeScreen = () => {
     // otherwise fallback to a short timeout. This replaces the deprecated InteractionManager.
     let handle: any = null;
     const scheduleIdle = () => {
-      if (typeof (globalThis as any).requestIdleCallback === 'function') {
-        handle = (globalThis as any).requestIdleCallback(() => load());
+      if (typeof (global as any).requestIdleCallback === 'function') {
+        handle = (global as any).requestIdleCallback(() => load());
       } else {
         // small delay to avoid jank on navigation
         handle = setTimeout(() => load(), 50);
@@ -166,8 +132,8 @@ const HomeScreen = () => {
 
     return () => {
       if (handle != null) {
-        if (typeof (globalThis as any).cancelIdleCallback === 'function') {
-          (globalThis as any).cancelIdleCallback(handle);
+        if (typeof (global as any).cancelIdleCallback === 'function') {
+          (global as any).cancelIdleCallback(handle);
         } else {
           clearTimeout(handle as number);
         }
@@ -210,9 +176,7 @@ const HomeScreen = () => {
     }
   }, [loading, headerSlideAnim, headerFadeAnim, bounceAnim]);
 
-  const handleChatPress = () => {
-    navigation.navigate('Chat');
-  };
+
 
   const spin = rotateAnim.interpolate({
     inputRange: [-30, 30],
@@ -267,24 +231,11 @@ const HomeScreen = () => {
           </View>
           <Text style={styles.title}>{greeting}{name ? `, ${name}!` : '!'}</Text>
           <Text style={styles.subtitle}>Welcome back — ready to chat?</Text>
-          <TouchableOpacity style={styles.button} onPress={handleChatPress}>
-            <Text style={styles.buttonText}>Chat with SoulBuddy</Text>
-          </TouchableOpacity>
+
         </View>
       )}
       
-      {/* Floating Chatbot Button */}
-      <TouchableOpacity 
-        style={styles.floatingChatbot} 
-        onPress={handleChatPress}
-        activeOpacity={0.8}
-      >
-        <Rive
-          resourceName="chatbot"
-          autoplay={true}
-          style={styles.floatingBotAnimation}
-        />
-      </TouchableOpacity>
+
     </LinearGradient>
   );
 };
@@ -371,56 +322,7 @@ const styles = StyleSheet.create({
     lineHeight: 24,
   },
 
-  // Button - chat button
-  button: {
-    backgroundColor: '#1976D2',
-    paddingHorizontal: 32,
-    paddingVertical: 16,
-    borderRadius: 12,
-    shadowColor: '#1976D2',
-    shadowOffset: {
-      width: 0,
-      height: 6,
-    },
-    shadowOpacity: 0.4,
-    shadowRadius: 10,
-    elevation: 6,
-  },
 
-  // Button text - chat button label
-  buttonText: {
-    color: '#ffffff',
-    fontSize: 18,
-    fontWeight: '600',
-    letterSpacing: 0.5,
-  },
-
-  // Floating chatbot button
-  floatingChatbot: {
-    position: 'absolute',
-    bottom: 30,
-    right: 20,
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    backgroundColor: '#003cff',
-    justifyContent: 'center',
-    alignItems: 'center',
-    shadowColor: '#1976D2',
-    shadowOffset: {
-      width: 0,
-      height: 4,
-    },
-    shadowOpacity: 0.4,
-    shadowRadius: 8,
-    elevation: 8,
-  },
-
-  // Floating bot animation
-  floatingBotAnimation: {
-    width: 60,
-    height: 60,
-  },
 });
 
 export default HomeScreen;

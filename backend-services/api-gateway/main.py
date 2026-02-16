@@ -256,6 +256,24 @@ async def get_lifestyle_week(user_id: int, request: Request):
         dict(request.headers)
     )
 
+# Forward combined charts (used by mobile `LifestyleScreen`)
+@app.get("/api/lifestyle/moods/combined-charts/{user_id}")
+async def get_lifestyle_combined_charts(user_id: int, request: Request):
+    return await forward_request(
+        f"{LIFESTYLE_SERVICE_URL}/api/lifestyle/moods/combined-charts/{user_id}",
+        "GET",
+        dict(request.headers)
+    )
+
+# Demo charts proxy (mobile fallback)
+@app.get("/api/demo/combined-charts/{user_id}")
+async def get_demo_combined_charts(user_id: int, request: Request):
+    return await forward_request(
+        f"{LIFESTYLE_SERVICE_URL}/api/demo/combined-charts/{user_id}",
+        "GET",
+        dict(request.headers)
+    )
+
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=8000)

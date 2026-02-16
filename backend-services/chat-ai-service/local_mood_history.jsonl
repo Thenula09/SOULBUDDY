@@ -1,0 +1,4 @@
+{"user_id": 16, "emotion": "happy", "source": "test", "created_at": "2026-02-16T06:40:33.025394+00:00"}
+{"user_id": 17, "emotion": "happy", "source": "seed_script", "created_at": "2026-02-16T06:42:19.726745+00:00"}
+{"user_id": 17, "emotion": "neutral", "source": "seed_script", "created_at": "2026-02-16T06:42:20.629647+00:00"}
+{"user_id": 17, "emotion": "sad", "source": "seed_script", "created_at": "2026-02-16T06:42:21.338774+00:00"}

@@ -73,7 +73,7 @@ const SplashOnboarding: React.FC<OnboardingScreenProps> = ({ navigation }) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#0b1220',
+    backgroundColor: '#0008ff',
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -88,13 +88,13 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     letterSpacing: 2,
     textAlign: 'center',
-    textShadowColor: 'rgba(255,255,255,0.08)',
+    textShadowColor: 'rgba(255, 255, 255, 0.08)',
     textShadowOffset: { width: 0, height: 6 },
     textShadowRadius: 20,
     marginBottom: 12,
   },
   subtitle: {
-    color: 'rgba(255,255,255,0.72)',
+    color: '#FFFFFF',
     fontSize: 14,
     marginBottom: 28,
     textAlign: 'center',
