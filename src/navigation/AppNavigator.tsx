@@ -2,6 +2,7 @@ import React from 'react';
 import { NavigationContainer } from '@react-navigation/native';
 import { createStackNavigator } from '@react-navigation/stack';
 import { TouchableOpacity, Text, StyleSheet } from 'react-native';
+import SplashOnboarding from '../screens/onboarding/SplashOnboarding';
 import Onboarding1 from '../screens/onboarding/Onboarding1';
 import Onboarding2 from '../screens/onboarding/Onboarding2';
 import Login from '../screens/auth/Login/Login';
@@ -59,7 +60,7 @@ function AppNavigator() {
   return (
     <NavigationContainer ref={navigationRef}>
       <Stack.Navigator
-        initialRouteName="Onboarding1"
+        initialRouteName="SplashOnboarding"
         screenOptions={{
           headerShown: false,
           cardStyleInterpolator: ({ current: { progress } }) => ({
@@ -69,6 +70,7 @@ function AppNavigator() {
           }),
         }}
       >
+        <Stack.Screen name="SplashOnboarding" component={SplashOnboarding} />
         <Stack.Screen name="Onboarding1" component={Onboarding1} />
         <Stack.Screen name="Onboarding2" component={Onboarding2} />
         <Stack.Screen name="Login" component={Login} />
