@@ -1,10 +1,11 @@
 import React, { useEffect, useState, useCallback, useRef } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, InteractionManager, Animated, PanResponder } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Animated, PanResponder } from 'react-native';
 import LinearGradient from 'react-native-linear-gradient';
 import { useNavigation } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { RootStackParamList } from '../../../types/navigation';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { API_ENDPOINTS } from '../../../config/api';
 import { HomeSkeleton } from '../../../components/ScreenSkeletons';
 import Rive from 'rive-react-native';
 
@@ -79,31 +80,66 @@ const HomeScreen = () => {
 
       const uid = await AsyncStorage.getItem('user_id');
       const email = await AsyncStorage.getItem('user_email');
-      let displayName = email;
+      const userName = await AsyncStorage.getItem('user_name');
+      let displayName = userName || email || 'User';
+      
+      console.log('HomeScreen load - uid:', uid, 'email:', email, 'userName:', userName, 'displayName:', displayName);
+      
       if (uid) {
         try {
+          const token = await AsyncStorage.getItem('access_token');
           const controller = new AbortController();
           const timeoutId = setTimeout(() => controller.abort(), 3000);
           
-          const res = await fetch(`http://10.0.2.2:8004/users/profile/${uid}`, {
-            signal: controller.signal,
-          });
+          let res;
+          if (token) {
+            res = await fetch(API_ENDPOINTS.USER_BY_ID(Number(uid)), {
+              signal: controller.signal,
+              headers: { Authorization: `Bearer ${token}` }
+            });
+          } else {
+            res = await fetch(API_ENDPOINTS.USER_BY_ID(Number(uid)), {
+              signal: controller.signal,
+            });
+          }
           clearTimeout(timeoutId);
           
           if (res.ok) {
             const data = await res.json();
+            console.log('HomeScreen - user data:', data);
             if (data.full_name) displayName = data.full_name;
+            else if (data.username) displayName = data.username;
+            else if (data.email) displayName = data.email;
+            
+            // Cache the name
+            await AsyncStorage.setItem('cached_user_name', displayName);
+            await AsyncStorage.setItem('cache_time', now.toString());
+            await AsyncStorage.setItem('user_name', displayName);
           }
         } catch (err) {
           console.warn('Failed to fetch profile:', err);
           // Use cached or email if fetch fails
           if (cachedName) displayName = cachedName;
+          else if (userName) displayName = userName;
+          else if (email) displayName = email;
+        }
+      } else {
+        // No user ID, try to get from Supabase auth
+        try {
+          const { supabase } = require('../../../services/supabase');
+          const { data } = await supabase.auth.getUser();
+          const sbUser: any = data?.user ?? null;
+          if (sbUser) {
+            displayName = sbUser.user_metadata?.full_name || sbUser.email || displayName;
+            await AsyncStorage.setItem('cached_user_name', displayName);
+            await AsyncStorage.setItem('cache_time', now.toString());
+            await AsyncStorage.setItem('user_name', displayName);
+          }
+        } catch (e) {
+          console.warn('Failed to get Supabase user:', e);
         }
       }
       
-      // Cache the name
-      await AsyncStorage.setItem('cached_user_name', displayName || '');
-      await AsyncStorage.setItem('cache_time', now.toString());
       setName(displayName);
 
       // Use Colombo time for greetings
@@ -114,12 +150,29 @@ const HomeScreen = () => {
   }, []);
 
   useEffect(() => {
-    // Defer loading until after navigation animation
-    const task = InteractionManager.runAfterInteractions(() => {
-      load();
-    });
+    // Schedule load when the JS thread is idle — use requestIdleCallback when available,
+    // otherwise fallback to a short timeout. This replaces the deprecated InteractionManager.
+    let handle: any = null;
+    const scheduleIdle = () => {
+      if (typeof (globalThis as any).requestIdleCallback === 'function') {
+        handle = (globalThis as any).requestIdleCallback(() => load());
+      } else {
+        // small delay to avoid jank on navigation
+        handle = setTimeout(() => load(), 50);
+      }
+    };
 
-    return () => task.cancel();
+    scheduleIdle();
+
+    return () => {
+      if (handle != null) {
+        if (typeof (globalThis as any).cancelIdleCallback === 'function') {
+          (globalThis as any).cancelIdleCallback(handle);
+        } else {
+          clearTimeout(handle as number);
+        }
+      }
+    };
   }, [load]);
 
   useEffect(() => {

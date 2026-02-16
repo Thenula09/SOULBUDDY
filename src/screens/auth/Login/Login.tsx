@@ -11,6 +11,8 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { AuthScreenProps } from '../../../types/navigation';
 import { loginStyles } from './styles';
 import LoginBackground from './LoginBackground';
+import { API_ENDPOINTS, fetchWithTimeout } from '../../../config/api';
+import { profileService } from '../../../services/api';
 
 const Login: React.FC<AuthScreenProps> = ({ navigation }) => {
   const [email, setEmail] = useState('');
@@ -36,17 +38,54 @@ const Login: React.FC<AuthScreenProps> = ({ navigation }) => {
       console.log('Login response data:', data);
       if (response.ok) {
         try {
-          await AsyncStorage.setItem('access_token', data.access_token);
-          await AsyncStorage.setItem('user_id', data.user_id);
-          await AsyncStorage.setItem('user_email', data.email);
-          if (data.name) {
-            await AsyncStorage.setItem('user_name', data.name);
-          }
+          // access_token is top-level, user object may be nested under `user` per backend
+          const accessToken = data.access_token;
+          const userObj = data.user || data;
+
+          await AsyncStorage.setItem('access_token', accessToken || '');
+
+          const uid = userObj?.id ? String(userObj.id) : (data.user_id ? String(data.user_id) : '');
+          const userEmail = userObj?.email || data.email || '';
+
+          if (uid) await AsyncStorage.setItem('user_id', uid);
+          if (userEmail) await AsyncStorage.setItem('user_email', userEmail);
+
+          // pick display name from user object (prefer full_name -> username -> email local-part)
+          let displayName = userObj?.full_name || userObj?.username || '';
+          if (!displayName && userEmail) displayName = userEmail.split('@')[0];
+
+          // ensure cache and visible name are updated
+          await AsyncStorage.setItem('user_name', displayName || '');
+          await AsyncStorage.setItem('cached_user_name', displayName || '');
+          await AsyncStorage.setItem('cache_time', Date.now().toString());
+
+          // clear generic local-profile/photo so previous user's data does not leak
+          await AsyncStorage.removeItem('local_profile');
+          await AsyncStorage.removeItem('profile_photo');
         } catch (e) {
           console.warn('Failed to save user info', e);
         }
+
         Alert.alert('Success', 'Login successful');
-        navigation.navigate('Main');
+
+        // Decide where to navigate: if server profile is empty (id === 0) send user to Profile screen
+        try {
+          const uid = await AsyncStorage.getItem('user_id');
+          if (uid) {
+            const serverProfile = await profileService.getProfile(uid);
+            if (!serverProfile || serverProfile.id === 0) {
+              // navigate to Main and tell MainTabs to open the Profile tab
+              navigation.navigate('Main', { initialTab: 'Profile' as const } as any);
+            } else {
+              navigation.navigate('Main');
+            }
+          } else {
+            navigation.navigate('Main');
+          }
+        } catch (err) {
+          console.warn('Error checking server profile after login', err);
+          navigation.navigate('Main');
+        }
       } else {
         let errorMessage = data.detail || data.message || 'Login failed';
         if (errorMessage.toLowerCase().includes('email not confirmed') || errorMessage.toLowerCase().includes('confirm your email')) {

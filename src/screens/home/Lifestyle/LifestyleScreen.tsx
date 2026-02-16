@@ -33,13 +33,20 @@ const LifestyleScreen: React.FC = () => {
   const API_HOST = Platform.OS === 'android' ? 'http://10.0.2.2:8000' : 'http://10.190.154.90:8000';
 
   const fetchData = React.useCallback(async () => {
-    setLoading(true);
     try {
-      const uid = await AsyncStorage.getItem('user_id') || '1';
-
+      const uid = await AsyncStorage.getItem('user_id');
       const accessToken = await AsyncStorage.getItem('access_token');
+      
+      // Guard clause - wait for authentication
+      if (!uid || !accessToken) {
+        console.log('No user_id or access_token yet, skipping fetch');
+        setIsUnauth(true);
+        setLoading(false);
+        return;
+      }
+
       const headers: any = { 'Content-Type': 'application/json' };
-      if (accessToken) headers.Authorization = `Bearer ${accessToken}`;
+      headers.Authorization = `Bearer ${accessToken}`;
 
       const [todayRes, lastRes, entriesRes, weekRes] = await Promise.all([
         fetch(`${API_HOST}/api/lifestyle/moods/today/${uid}`, { headers }),
@@ -60,13 +67,28 @@ const LifestyleScreen: React.FC = () => {
       // Dev fallback: if gateway is blocking (401) and we're in dev, try direct lifestyle-service (no auth)
       if (unauth && __DEV__) {
         try {
+          // Use real data endpoints for development (reads from Supabase mood_history)
           const directToday = await fetch(`${API_HOST.replace(/:8000$/, ':8005')}/api/lifestyle/moods/today/${uid}`);
-          const directEntries = await fetch(`${API_HOST.replace(/:8000$/, ':8005')}/api/lifestyle/${uid}`);
-          const directWeek = await fetch(`${API_HOST.replace(/:8000$/, ':8005')}/api/lifestyle/week/${uid}`);
+          const directLast = await fetch(`${API_HOST.replace(/:8000$/, ':8005')}/api/lifestyle/moods/last/${uid}?limit=8`);
+          const directCharts = await fetch(`${API_HOST.replace(/:8000$/, ':8005')}/api/lifestyle/moods/combined-charts/${uid}`);
+          
           if (directToday.ok) todayJson = await directToday.json();
-          if (directEntries.ok) entriesJson = await directEntries.json();
-          if (directWeek.ok) weekJson = await directWeek.json();
-          console.info('Dev fallback: used direct lifestyle-service requests');
+          if (directLast.ok) lastJson = await directLast.json();
+          
+          if (directCharts.ok) {
+            const chartData = await directCharts.json();
+            // Use real pie data from combined-charts endpoint
+            setPieData(chartData.pie_data || []);
+            console.info('Dev fallback: used real Supabase mood data');
+          } else {
+            // Fallback to demo if no real data available
+            const demoFallback = await fetch(`${API_HOST.replace(/:8000$/, ':8005')}/api/demo/combined-charts/${uid}`);
+            if (demoFallback.ok) {
+              const demoData = await demoFallback.json();
+              setPieData(demoData.pie_data || []);
+              console.info('Dev fallback: used demo data (no real mood data found)');
+            }
+          }
         } catch (err) {
           console.warn('Dev fallback failed:', err);
         }
@@ -84,11 +106,10 @@ const LifestyleScreen: React.FC = () => {
       setLifestyleEntries(persistedEntries);
       setWeekSummary(weekJson || {});
 
-
-
-      // build pie data from today's moods
+      // Build pie data from all moods (today + last)
+      const allMoods = [...moodsToday, ...moodsLast];
       const counts: Record<string, number> = {}; 
-      moodsToday.forEach((m: any) => {
+      allMoods.forEach((m: any) => {
         const k = (m.emotion || 'Other');
         counts[k] = (counts[k] || 0) + 1;
       });
@@ -101,6 +122,7 @@ const LifestyleScreen: React.FC = () => {
         Fear: '#9C27B0',
         Surprised: '#FF9800',
         Disgust: '#795548',
+        Excited: '#FFEB3B',
         Other: '#FFB74D',
       };
 

@@ -5,6 +5,7 @@ export type RootStackParamList = {
   Onboarding2: undefined;
   Login: undefined;
   ForgotPassword: undefined;
+  ResetPassword: { accessToken?: string } | undefined;
   ChooseRecovery: undefined;
   MobileVerification: undefined;
   OTPEntry: { phone?: string; code?: string } | undefined;

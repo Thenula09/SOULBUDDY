@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useRoute } from '@react-navigation/native';
 import HomeScreen from '../screens/home/Home/HomeScreen';
 import LifestyleScreen from '../screens/home/Lifestyle/LifestyleScreen';
 import ProfileScreen from '../screens/home/Profile/ProfileScreen';
@@ -11,6 +11,17 @@ const MainTabs = () => {
   const [active, setActive] = useState<Tab>('Home');
   const [loadedScreens, setLoadedScreens] = useState<Set<Tab>>(new Set(['Home']));
   const navigation: any = useNavigation();
+  const route: any = useRoute();
+
+  useEffect(() => {
+    const initialTab = route?.params?.initialTab as Tab | undefined;
+    if (initialTab && ['Home','Lifestyles','Profile'].includes(initialTab)) {
+      setActive(initialTab);
+      setLoadedScreens(prev => new Set([...prev, initialTab]));
+      // clear the param so it doesn't re-trigger
+      try { navigation.setParams({ initialTab: undefined }); } catch {}
+    }
+  }, [route?.params]);
 
   // Load screen on first access (lazy mounting)
   const handleTabPress = (tab: Tab) => {

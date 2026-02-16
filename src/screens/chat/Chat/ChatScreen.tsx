@@ -131,15 +131,23 @@ const ChatScreen = () => {
   }, []);
 
   const sendMessage = useCallback(async () => {
-    if (inputText.trim() === '') return;
-    const newMsg = { id: Date.now().toString(), text: inputText, sender: 'user' };
-    setMessages(prev => [...prev, newMsg]);
-    const currentInput = inputText;
+    if (!inputText.trim()) return;
+    const currentInput = inputText.trim();
     setInputText('');
-
     setIsTyping(true);
 
+    // Add user message to chat immediately
+    const userMessage = {
+      id: Date.now().toString() + '_user',
+      text: currentInput,
+      sender: 'user',
+    };
+    setMessages(prev => [...prev, userMessage]);
+
     try {
+      // Get authenticated user ID
+      const userId = await AsyncStorage.getItem('user_id');
+      
       // Add timeout to prevent long waits
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
@@ -149,7 +157,8 @@ const ChatScreen = () => {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           message: currentInput,
-          mood: "Neutral"
+          mood: "Neutral",
+          user_id: userId // Send authenticated user ID
         }),
         signal: controller.signal,
       });
@@ -167,12 +176,29 @@ const ChatScreen = () => {
       // Detect emotion from user message and save mood data
       const detectedEmotion = detectEmotionFromText(currentInput);
       if (detectedEmotion !== 'Neutral') {
-        await saveMoodData({
-          emotion: detectedEmotion,
-          emotion_score: 6,
-          notes: 'Detected from chat message'
-        });
-        console.log('Mood saved:', detectedEmotion);
+        try {
+          // Save mood data to backend using existing userId
+          const moodResponse = await fetch('http://10.0.2.2:8002/api/v1/save-mood', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              user_id: userId,
+              emotion: detectedEmotion,
+              confidence: 0.8,
+              source: 'chat'
+            })
+          });
+          
+          if (moodResponse.ok) {
+            console.log('✅ Mood saved from chat:', detectedEmotion);
+            // Refresh today's moods
+            await fetchTodayMoods();
+          } else {
+            console.log('❌ Failed to save mood from chat');
+          }
+        } catch (error) {
+          console.error('Error saving mood from chat:', error);
+        }
       }
     } catch (error) {
       console.error("Error sending message:", error);
@@ -295,13 +321,16 @@ const ChatScreen = () => {
               // Multipart fallback to `/analyze-photo-emotion` (sometimes more reliable)
               try {
                 console.log('Attempting multipart fallback to analyze-photo-emotion...');
+                // Get authenticated user ID
+                const userId = await AsyncStorage.getItem('user_id');
+                
                 const fd = new FormData();
-                fd.append('file', {
+                fd.append('image', {
                   uri: source.uri,
                   name: `photo_${Date.now()}.jpg`,
                   type: 'image/jpeg'
                 } as any);
-                fd.append('user_id', '1');
+                fd.append('user_id', userId || '1'); // Use authenticated user ID
                 // ask server to process in background so the client isn't blocked
                 fd.append('background', 'true');
 

@@ -3,20 +3,36 @@ import { View, Text, TextInput, TouchableOpacity, Alert, ScrollView } from 'reac
 import { AuthScreenProps } from '../../../types/navigation';
 import { forgotStyles } from './styles';
 import ForgotPasswordSvg from './forgotpaword.svg';
+import { supabase } from '../../../services/supabase';
 
 
 
 const ForgotPassword: React.FC<AuthScreenProps> = ({ navigation }) => {
   const [email, setEmail] = useState('');
 
-  const handleSendEmail = () => {
+  const handleSendEmail = async () => {
     if (!email) {
       Alert.alert('Error', 'Please enter your email');
       return;
     }
-    // Simulate sending email
-    Alert.alert('Email Sent', `A password reset link has been sent to ${email}`);
-    navigation.navigate('ChooseRecovery');
+
+    try {
+      // send reset email via Supabase
+      const { error } = await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo: 'soulbuddy://reset-password', // deep link that opens the app
+      });
+
+      if (error) {
+        Alert.alert('Error', error.message);
+        return;
+      }
+
+      Alert.alert('Email sent', `A password reset link was sent to ${email}. Please check your inbox.`);
+      navigation.navigate('ChooseRecovery');
+    } catch (err) {
+      console.error('Reset email error', err);
+      Alert.alert('Error', 'Failed to send reset email.');
+    }
   };
 
   return (

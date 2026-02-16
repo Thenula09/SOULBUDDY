@@ -36,8 +36,10 @@ except Exception as e:
 load_dotenv()
 
 # Supabase Configuration
-SUPABASE_URL = os.getenv("SUPABASE_URL", "")
-SUPABASE_KEY = os.getenv("SUPABASE_KEY", "")
+SUPABASE_URL = os.getenv("SUPABASE_URL")
+SUPABASE_KEY = os.getenv("SUPABASE_KEY")
+SUPABASE_SERVICE_KEY = os.getenv("SUPABASE_SERVICE_KEY")  # Service role key for RLS bypass
+GROQ_API_KEY = os.getenv("GROQ_API_KEY")
 # URL for the User service (used to proxy mood endpoints when needed)
 USER_SERVICE_URL = os.getenv("USER_SERVICE_URL", "http://localhost:8004")
 
@@ -50,10 +52,12 @@ def save_mood_to_database(user_id: int, emotion: str, confidence: float, source:
         return False
     
     try:
+        # Use service role key for RLS bypass
         headers = {
             "apikey": SUPABASE_KEY,
-            "Authorization": f"Bearer {SUPABASE_KEY}",
-            "Content-Type": "application/json"
+            "Authorization": f"Bearer {SUPABASE_KEY}",  # Use regular key for now
+            "Content-Type": "application/json",
+            "Prefer": "return=minimal"
         }
         
         # Enhanced data structure with photo response details
@@ -82,7 +86,7 @@ def save_mood_to_database(user_id: int, emotion: str, confidence: float, source:
         print(f"🕐 Timestamp (UTC): {data['created_at']}")
 
         response = requests.post(
-            f"{SUPABASE_URL}/rest/v1/mood_history",
+            f"{SUPABASE_URL}/rest/v1/user_moods",
             headers=headers,
             json=data,
             timeout=10
@@ -1123,7 +1127,11 @@ async def chat(
                 "Stress": 0.7, "Neutral": 0.6, "Anxious": 0.7, "Excited": 0.8
             }
             confidence = confidence_map.get(emotion, 0.6)
-            user_id_to_save = request.user_id if request.user_id else 1  # Use default if not provided
+            user_id_to_save = request.user_id if request.user_id else None  # Use None instead of hardcoded 1
+            
+            if user_id_to_save is None:
+                print("⚠️ No user_id provided for mood saving")
+                return response_data
             
             try:
                 saved = save_mood_to_database(user_id_to_save, emotion, confidence, source="chat")
@@ -1136,15 +1144,20 @@ async def chat(
         
         # Save chat conversation to database
         try:
+            chat_user_id = request.user_id if request.user_id else None
+            if chat_user_id is None:
+                print("⚠️ No user_id provided for chat saving")
+                return response_data
+                
             chat_saved = save_chat_to_database(
-                user_id=request.user_id if request.user_id else 1,
+                user_id=chat_user_id,
                 user_message=request.message,
                 ai_reply=response_data["reply"],
                 ai_emotion=response_data["emotion"],
                 user_mood=user_mood
             )
             if chat_saved:
-                print(f"✅ Chat saved to database: user_id={request.user_id}, ai_emotion={response_data['emotion']}")
+                print(f"✅ Chat saved to database: user_id={chat_user_id}, ai_emotion={response_data['emotion']}")
             else:
                 print(f"⚠️ Failed to save chat to database")
         except Exception as chat_db_error:
@@ -1187,6 +1200,35 @@ async def test_chat():
         "message": "Chat service is ready!",
         "model": "llama-3.1-8b-instant"
     }
+
+@app.post("/api/v1/save-mood")
+async def save_mood_direct(request: dict):
+    """Direct mood saving endpoint for mobile app"""
+    try:
+        user_id = request.get('user_id')
+        emotion = request.get('emotion')
+        confidence = request.get('confidence', 0.8)
+        source = request.get('source', 'chat')
+        
+        if not user_id or not emotion:
+            return {"success": False, "error": "user_id and emotion required"}
+        
+        # Save to database
+        saved = save_mood_to_database(
+            user_id=int(user_id),
+            emotion=emotion,
+            confidence=float(confidence),
+            source=source
+        )
+        
+        if saved:
+            return {"success": True, "message": f"Mood {emotion} saved successfully"}
+        else:
+            return {"success": False, "error": "Failed to save mood"}
+            
+    except Exception as e:
+        print(f"❌ Error in save-mood endpoint: {e}")
+        return {"success": False, "error": str(e)}
 
 # Compatibility endpoint used by mobile frontend to trigger a client-side chat reset
 @app.post("/api/v1/reset-chat")
@@ -1241,7 +1283,16 @@ async def analyze_emotion(request: EmotionRequest):
         # 4. Attempt to save detected mood to Supabase (best-effort)
         saved = False
         try:
-            saved = save_mood_to_database(user_id=1, emotion=detected_emotion, confidence=confidence, source="photo")
+            # Use the authenticated user's ID - no fallback to hardcoded 1
+            user_id_to_save = request.user_id if request.user_id else None
+            if user_id_to_save is None:
+                print("⚠️ No user_id provided for photo mood saving")
+            else:
+                saved = save_mood_to_database(user_id=user_id_to_save, emotion=detected_emotion, confidence=confidence, source="photo")
+                if saved:
+                    print(f"✅ Photo mood saved: user_id={user_id_to_save}, emotion={detected_emotion}")
+                else:
+                    print(f"⚠️ Failed to save photo mood to database")
         except Exception as e:
             print(f"❌ analyze_emotion: exception while saving mood: {e}")
 
@@ -1362,6 +1413,7 @@ async def _process_photo_background(task_id: str, image_path: str, user_id: int)
         if saved:
             print(f"✅ [task:{task_id}] mood saved for user_id={user_id}: {detected_emotion} ({confidence:.2f})")
         else:
+            print(f"⚠️ [task:{task_id}] failed to save mood for user_id={user_id}")
             print(f"⚠️ [task:{task_id}] mood NOT saved for user_id={user_id}")
 
         TASK_STORE[task_id]["status"] = "done"
@@ -1736,6 +1788,7 @@ async def analyze_photo_emotion(
         if saved:
             print(f"✅ Mood saved to database: user_id={user_id}, emotion={detected_emotion}, confidence={confidence:.2f}")
         else:
+            print(f"⚠️ Failed to save mood to database for user_id={user_id}")
             print(f"⚠️ Mood NOT saved to database for user_id={user_id}")
 
         # Clean up

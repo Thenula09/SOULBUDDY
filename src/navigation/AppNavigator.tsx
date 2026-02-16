@@ -7,6 +7,7 @@ import Onboarding2 from '../screens/onboarding/Onboarding2';
 import Login from '../screens/auth/Login/Login';
 import Register from '../screens/auth/Register/Register';
 import ForgotPassword from '../screens/auth/ForgotPassword/ForgotPassword';
+import ResetPassword from '../screens/auth/ResetPassword/ResetPassword';
 import ChooseRecovery from '../screens/auth/ChooseRecovery/ChooseRecovery';
 import MobileVerification from '../screens/auth/MobileVerification/MobileVerification';
 import OTPEntry from '../screens/auth/OTPEntry/OTPEntry';
@@ -26,8 +27,37 @@ const BackButton = ({ onPress }: { onPress: () => void }) => (
 const Stack = createStackNavigator();
 
 function AppNavigator() {
+  const navigationRef = React.createRef<any>();
+
+  React.useEffect(() => {
+    const handleUrl = (event: { url?: string } | string) => {
+      const url = typeof event === 'string' ? event : event.url;
+      if (!url) return;
+      try {
+        const parsed = new URL(url);
+        // match links like soulbuddy://reset-password?access_token=... or any path containing reset-password/update-password
+        if (parsed.pathname.includes('reset-password') || parsed.pathname.includes('update-password')) {
+          const accessToken = parsed.searchParams.get('access_token') || parsed.searchParams.get('accessToken');
+          navigationRef.current?.navigate('ResetPassword', { accessToken });
+        }
+      } catch (e) {
+        console.warn('Failed to parse deep link', e);
+      }
+    };
+
+    let sub: any = null;
+    (async () => {
+      const RN = await import('react-native');
+      const initial = await RN.Linking.getInitialURL();
+      if (initial) handleUrl(initial);
+      sub = RN.Linking.addEventListener('url', handleUrl as any);
+    })();
+
+    return () => sub?.remove?.();
+  }, []);
+
   return (
-    <NavigationContainer>
+    <NavigationContainer ref={navigationRef}>
       <Stack.Navigator
         initialRouteName="Onboarding1"
         screenOptions={{
@@ -43,6 +73,7 @@ function AppNavigator() {
         <Stack.Screen name="Onboarding2" component={Onboarding2} />
         <Stack.Screen name="Login" component={Login} />
         <Stack.Screen name="ForgotPassword" component={ForgotPassword} />
+        <Stack.Screen name="ResetPassword" component={ResetPassword} />
         <Stack.Screen name="ChooseRecovery" component={ChooseRecovery} />
         <Stack.Screen name="MobileVerification" component={MobileVerification} />
         <Stack.Screen name="OTPEntry" component={OTPEntry} />

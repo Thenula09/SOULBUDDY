@@ -2,9 +2,11 @@ import React, { useEffect, useState, useCallback } from 'react';
 import { View, Text, StyleSheet, Image, ActivityIndicator, Alert, TextInput, TouchableOpacity, ScrollView } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { launchImageLibrary } from 'react-native-image-picker';
-import { useIsFocused } from '@react-navigation/native';
+import { useIsFocused, useNavigation } from '@react-navigation/native';
 import { profileService } from '../../../services/api';
 import { API_ENDPOINTS, fetchWithTimeout, API_CONFIG } from '../../../config/api';
+import { supabase } from '../../../services/supabase';
+import useStore from '../../../store/useStore';
 
 const HOBBIES_PRESET = ['Reading','Traveling','Cooking','Gaming','Photography','Gardening','Painting','Writing','Music','Dancing'];
 const HEALTH_PRESET = ['Diabetes','Hypertension','Asthma','Anxiety','Depression','Allergy','Back Pain','Arthritis','Migraine','Thyroid','Cardiac','Obesity','Insomnia','Skin Condition','Other'];
@@ -19,6 +21,7 @@ const ProfileScreen: React.FC = () => {
   const [gender, setGender] = useState<'male'|'female'|'other'|null>(null);
   const [healthConditions, setHealthConditions] = useState<string[]>([]);
   const [newCondition, setNewCondition] = useState('');
+  const [serverProfileMissing, setServerProfileMissing] = useState(false);
   
   // New fields
   const [petName, setPetName] = useState('');
@@ -35,19 +38,46 @@ const ProfileScreen: React.FC = () => {
   const [sleepLatency, setSleepLatency] = useState<number | undefined>(undefined);
 
   const isFocused = useIsFocused();
+  const navigation = useNavigation();
+  const logoutStore = useStore(state => state.logout);
 
   const loadLocal = useCallback(async () => {
     const uid = await AsyncStorage.getItem('user_id');
     const name = await AsyncStorage.getItem('user_name');
+    const email = await AsyncStorage.getItem('user_email');
     const localPhoto = uid ? await AsyncStorage.getItem(`profile_photo_${uid}`) : await AsyncStorage.getItem('profile_photo');
     const localProfile = uid ? await AsyncStorage.getItem(`local_profile_${uid}`) : await AsyncStorage.getItem('local_profile');
-    console.log('ProfileScreen loadLocal - uid:', uid, 'name:', name);
+    
+    console.log('ProfileScreen loadLocal - uid:', uid, 'name:', name, 'email:', email);
     setUserId(uid);
-    setFullName(name || '');
+    
+    // Set display name with priority: name > email > "Please log in"
+    let displayName = name || email || 'Please log in again';
+    setFullName(displayName);
     setPhotoUri(localPhoto || undefined);
-    if (localProfile) {
+    
+    // Reset all fields to empty first
+    setHobbies([]);
+    setGender(null);
+    setHealthConditions([]);
+    setPetName('');
+    setJobTitle('');
+    setTopCompany('');
+    setFamilyMembers(0);
+    setAge(undefined);
+    setWeight(undefined);
+    setProvince('');
+    setCity('');
+    setVillage('');
+    setSleepHours(undefined);
+    setExerciseTime('');
+    setSleepLatency(undefined);
+    
+    // Load local profile if it exists for THIS user
+    if (localProfile && uid) {
       try {
         const parsed = JSON.parse(localProfile);
+        console.log('ProfileScreen - loading local profile for user:', uid);
         setHobbies(parsed.hobbies || []);
         setGender(parsed.gender || null);
         setHealthConditions(parsed.health_conditions || []);
@@ -72,25 +102,62 @@ const ProfileScreen: React.FC = () => {
     // still show local data quickly, then attempt to refresh from server (if logged in)
     setLoading(false);
 
+    // Prefer authoritative Supabase session for current user email/name (if available)
+    try {
+      const { data } = await supabase.auth.getUser();
+      const sbUser: any = data?.user ?? null;
+      if (sbUser) {
+        const display = sbUser.user_metadata?.full_name || sbUser.email || displayName;
+        if (display && display !== displayName) {
+          setFullName(display);
+          try { await AsyncStorage.setItem('user_name', display); } catch {}
+          try { await AsyncStorage.setItem('cached_user_name', display); await AsyncStorage.setItem('cache_time', Date.now().toString()); } catch {}
+        }
+      }
+    } catch {
+      // ignore - fall back to local storage / server calls below
+    }
+
     if (uid) {
       (async () => {
         try {
-          const serverProfile: any = await profileService.getProfile(uid);
+          const token = await AsyncStorage.getItem('access_token');
+          if (token) {
+            // First fetch basic user info for name
+            const resp = await fetchWithTimeout(API_ENDPOINTS.USER_BY_ID(Number(uid)), { headers: { Authorization: `Bearer ${token}` } }, API_CONFIG.TIMEOUT.PROFILE);
+            if (resp.ok) {
+              const user = await resp.json();
+              if (user.full_name && user.full_name !== displayName) {
+                setFullName(user.full_name);
+                await AsyncStorage.setItem('user_name', user.full_name);
+                await AsyncStorage.setItem('cached_user_name', user.full_name);
+                await AsyncStorage.setItem('cache_time', Date.now().toString());
+              }
+            }
+          }
 
-          // Merge server profile into UI (only override when present)
+          // Then fetch server profile for THIS user only
+          const serverProfile: any = await profileService.getProfile(uid);
+          console.log('ProfileScreen - server profile for user:', uid, serverProfile);
+
+          // Load server profile data for THIS user (overwrites local if exists)
           if (serverProfile) {
-            if (serverProfile.hobbies) setHobbies(serverProfile.hobbies || []);
-            if (serverProfile.health_conditions) setHealthConditions(serverProfile.health_conditions || []);
-            if (serverProfile.job_title) setJobTitle(serverProfile.job_title || '');
-            if (serverProfile.top_company) setTopCompany(serverProfile.top_company || '');
-            if (typeof serverProfile.family_members !== 'undefined') setFamilyMembers(serverProfile.family_members || 0);
-            if (typeof serverProfile.age !== 'undefined') setAge(serverProfile.age || undefined);
-            if (typeof serverProfile.weight !== 'undefined') setWeight(serverProfile.weight || undefined);
-            if (serverProfile.province) setProvince(serverProfile.province || '');
-            if (serverProfile.city) setCity(serverProfile.city || '');
-            if (serverProfile.village) setVillage(serverProfile.village || '');
-            if (typeof serverProfile.sleep_latency !== 'undefined') setSleepLatency(serverProfile.sleep_latency || undefined);
-            if (serverProfile.exercise_time) setExerciseTime(serverProfile.exercise_time || '');
+            console.log('ProfileScreen - loading server profile data');
+            setHobbies(serverProfile.hobbies || []);
+            setGender(serverProfile.gender || null);
+            setHealthConditions(serverProfile.health_conditions || []);
+            setPetName(serverProfile.pet_name || '');
+            setJobTitle(serverProfile.job_title || '');
+            setTopCompany(serverProfile.top_company || '');
+            setFamilyMembers(serverProfile.family_members || 0);
+            setAge(serverProfile.age || undefined);
+            setWeight(serverProfile.weight || undefined);
+            setProvince(serverProfile.province || '');
+            setCity(serverProfile.city || '');
+            setVillage(serverProfile.village || '');
+            setSleepHours(serverProfile.sleep_hours || undefined);
+            setExerciseTime(serverProfile.exercise_time || '');
+            setSleepLatency(serverProfile.sleep_latency || undefined);
 
             // server may provide a profile photo URL
             if (serverProfile.profile_photo_url) {
@@ -100,27 +167,11 @@ const ProfileScreen: React.FC = () => {
 
             // cache server profile locally so next open is fast
             try { await AsyncStorage.setItem(`local_profile_${uid}`, JSON.stringify(serverProfile)); } catch {}
+          } else {
+            console.log('ProfileScreen - no server profile found, keeping empty fields');
           }
-        } catch (err) {
-          console.warn('Failed to fetch server profile (non-fatal):', err);
-        }
-
-        // Also fetch basic user record (for full_name) if we have an access token
-        try {
-          const token = await AsyncStorage.getItem('access_token');
-          if (token) {
-            const resp = await fetchWithTimeout(API_ENDPOINTS.USER_BY_ID(Number(uid)), { headers: { Authorization: `Bearer ${token}` } }, API_CONFIG.TIMEOUT.PROFILE);
-            if (resp.ok) {
-              const user = await resp.json();
-              if (user.full_name) {
-                setFullName(user.full_name);
-                await AsyncStorage.setItem('user_name', user.full_name);
-              }
-            }
-          }
-        } catch (err) {
-          // not fatal
-          console.warn('Failed to fetch basic user info:', err);
+        } catch {
+          console.warn('Failed to fetch server profile (non-fatal)');
         }
       })();
     }
@@ -243,6 +294,12 @@ const ProfileScreen: React.FC = () => {
     <ScrollView style={styles.container} contentContainerStyle={styles.contentContainer}>
       <Text style={styles.title}>Profile</Text>
 
+      {serverProfileMissing && (
+        <View style={styles.missingBanner}>
+          <Text style={styles.missingBannerText}>Please complete your profile — it hasn't been saved to the server yet.</Text>
+        </View>
+      )}
+
       {/* Photo & Name Section */}
       <View style={styles.sectionCard}>
         <View style={styles.photoSection}>
@@ -263,6 +320,12 @@ const ProfileScreen: React.FC = () => {
             <Text style={styles.nameText}>{fullName || 'Please log in again'}</Text>
           </View>
         </View>
+      </View>
+
+      {/* Optional Fields Notice */}
+      <View style={[styles.sectionCard, styles.optionalCard]}>
+        <Text style={styles.optionalTitle}>📝 Optional Profile Information</Text>
+        <Text style={styles.optionalText}>Fill only the fields you want to save. All fields are optional!</Text>
       </View>
 
       {/* Gender Section */}
@@ -391,8 +454,72 @@ const ProfileScreen: React.FC = () => {
         <TouchableOpacity style={styles.actionBtn} onPress={saveLocalProfile}>
           <Text style={styles.actionBtnText}>💾 Save Profile Locally</Text>
         </TouchableOpacity>
+        <TouchableOpacity style={[styles.actionBtn, styles.serverSaveBtn]} onPress={async () => {
+            if (!userId) { Alert.alert('Not logged in', 'Please log in to save your profile to the server.'); return; }
+            const payload = { 
+              full_name: fullName, 
+              hobbies, 
+              gender, 
+              health_conditions: healthConditions, 
+              profile_photo_url: photoUri,
+              pet_name: petName,
+              job_title: jobTitle,
+              top_company: topCompany,
+              family_members: familyMembers,
+              age: age,
+              weight: weight,
+              province: province,
+              city: city,
+              village: village,
+              sleep_hours: sleepHours,
+              exercise_time: exerciseTime,
+              sleep_latency: sleepLatency
+            };
+            try {
+              setLoading(true);
+              await profileService.updateProfile(userId, payload);
+              await AsyncStorage.setItem(`local_profile_${userId}`, JSON.stringify(payload));
+              Alert.alert('Saved', 'Profile saved to server');
+              setServerProfileMissing(false);
+            } catch (e) {
+              console.warn('Failed to save profile to server', e);
+              Alert.alert('Error', 'Failed to save profile to server');
+            } finally { setLoading(false); }
+          }}>
+          <Text style={styles.actionBtnText}>☁️ Save Profile to Server</Text>
+        </TouchableOpacity>
         <TouchableOpacity style={[styles.actionBtn, styles.clearBtn]} onPress={clearLocal}>
           <Text style={styles.clearBtnText}>🗑️ Clear Local Data</Text>
+        </TouchableOpacity>
+        {/* Logout button */}
+        <TouchableOpacity
+          style={[styles.actionBtn, styles.logoutBtn]}
+          onPress={() => {
+            Alert.alert('Log out', 'Are you sure you want to log out?', [
+              { text: 'Cancel', style: 'cancel' },
+              { text: 'Log out', style: 'destructive', onPress: async () => {
+                  // Supabase sign out + clear local state/storage
+                  try { await supabase.auth.signOut(); } catch { console.warn('supabase signOut failed'); }
+
+                  const uid = await AsyncStorage.getItem('user_id');
+                  const keysToRemove = [
+                    'access_token', 'user_id', 'user_email', 'user_name', 'cached_user_name', 'cache_time',
+                    'profile_photo', 'local_profile'
+                  ];
+                  if (uid) {
+                    keysToRemove.push(`local_profile_${uid}`, `profile_photo_${uid}`);
+                  }
+                  try { await AsyncStorage.multiRemove(keysToRemove); } catch { /* ignore */ }
+
+                  try { logoutStore(); } catch { /* ignore */ }
+
+                  // navigate to Login (reset stack)
+                  try { navigation.reset({ index: 0, routes: [{ name: 'Login' as any }] }); } catch { navigation.navigate('Login' as any); }
+                }}
+            ]);
+          }}
+        >
+          <Text style={styles.actionBtnText}>🔓 Log out</Text>
         </TouchableOpacity>
       </View>
     </ScrollView>
@@ -404,6 +531,11 @@ const styles = StyleSheet.create({
   contentContainer: { padding: 16, paddingBottom: 32 },
   center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   title: { fontSize: 24, fontWeight: '700', marginBottom: 16, color: '#1a1a1a' },
+  
+  // Optional Fields Notice
+  optionalTitle: { fontSize: 16, fontWeight: '600', color: '#2196F3', marginBottom: 8, textAlign: 'center' },
+  optionalText: { fontSize: 14, color: '#666', textAlign: 'center', lineHeight: 20 },
+  optionalCard: { backgroundColor: '#f0f8ff' },
   
   // Section Card
   sectionCard: {
@@ -420,6 +552,8 @@ const styles = StyleSheet.create({
   sectionTitle: { fontSize: 16, fontWeight: '600', color: '#1a1a1a', marginBottom: 12 },
   sectionHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 },
   counter: { fontSize: 14, fontWeight: '500', color: '#FF0000' },
+  missingBanner: { backgroundColor: '#FFF4E5', borderRadius: 8, padding: 10, marginBottom: 12, borderWidth: 1, borderColor: '#FFD8A8' },
+  missingBannerText: { color: '#8A4B00', fontSize: 13 },
   
   // Photo Section
   photoSection: { flexDirection: 'row', alignItems: 'center', gap: 16 },
@@ -473,9 +607,11 @@ const styles = StyleSheet.create({
   
   // Action Buttons
   actionBtn: { backgroundColor: '#FF0000', padding: 14, borderRadius: 8, marginBottom: 8, alignItems: 'center' },
+  serverSaveBtn: { backgroundColor: '#2B8A3E' },
   clearBtn: { backgroundColor: '#fff', borderWidth: 1, borderColor: '#FF6B6B' },
   actionBtnText: { color: '#fff', fontSize: 15, fontWeight: '600' },
   clearBtnText: { color: '#FF6B6B', fontSize: 15, fontWeight: '600' },
+  logoutBtn: { backgroundColor: '#444', marginTop: 8 }
 });
 
 export default ProfileScreen;

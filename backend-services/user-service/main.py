@@ -353,6 +353,33 @@ async def update_profile(
     db.refresh(profile)
     return profile
 
+@app.put("/api/profile/{user_id}", response_model=UserProfileResponse)
+async def update_user_profile(
+    user_id: int,
+    profile_data: UserProfileUpdate,
+    db: Session = Depends(get_db)
+):
+    """Update user profile by user ID (for mobile app compatibility)"""
+    profile = db.query(UserProfile).filter(UserProfile.user_id == user_id).first()
+    if not profile:
+        # Create new profile if it doesn't exist
+        user = db.query(User).filter(User.id == user_id).first()
+        if not user:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="User not found"
+            )
+        profile = UserProfile(user_id=user_id)
+        db.add(profile)
+    
+    # Update profile fields
+    for key, value in profile_data.model_dump(exclude_unset=True).items():
+        setattr(profile, key, value)
+    
+    db.commit()
+    db.refresh(profile)
+    return profile
+
 @app.get("/api/profile/{user_id}", response_model=UserProfileResponse)
 async def get_user_profile(
     user_id: int,
