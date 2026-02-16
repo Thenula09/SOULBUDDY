@@ -179,15 +179,7 @@ const Login: React.FC<AuthScreenProps> = ({ navigation }) => {
           style={loginStyles.adminLinkContainer}
         >
           <Text style={loginStyles.adminLink}>Admin login</Text>
-        </TouchableOpacity>
-        
-        {/* Animation Demo link */}
-        <TouchableOpacity 
-          onPress={() => navigation.navigate('RiveAnimationDemo')}
-          style={loginStyles.demoLinkContainer}
-        >
-          <Text style={loginStyles.demoLink}>🎨 View Animations</Text>
-        </TouchableOpacity>
+        </TouchableOpacity> 
       </View>
     </ScrollView>
     </>

@@ -182,13 +182,4 @@ export const loginStyles = StyleSheet.create({
     color: '#2011F9',
     textDecorationLine: 'underline',
   },
-  demoLinkContainer: {
-    paddingVertical: 8,
-    alignItems: 'center',
-  },
-  demoLink: {
-    fontSize: 12,
-    color: '#9B59B6',
-    fontWeight: '500',
-  },
 });
