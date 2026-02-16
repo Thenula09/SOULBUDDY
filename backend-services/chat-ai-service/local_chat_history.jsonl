@@ -47,3 +47,4 @@
 {"user_id": 10, "user_message": "hy", "ai_reply": "Hey, machan! 👋 How's your day so far?", "ai_emotion": "Neutral", "user_mood": null, "created_at": "2026-02-16T09:11:12.238489"}
 {"user_id": 10, "user_message": "Sad day bro", "ai_reply": "Hey, I noticed earlier you were feeling a bit down, is everything okay now? 😔", "ai_emotion": "Sad", "user_mood": null, "created_at": "2026-02-16T09:11:22.517009"}
 {"user_id": 10, "user_message": "Sad day", "ai_reply": "I noticed earlier you were feeling a bit down, is everything okay now? 😔", "ai_emotion": "Sad", "user_mood": null, "created_at": "2026-02-16T09:33:37.220897"}
+{"user_id": 10, "user_message": "hy", "ai_reply": "Hey! Good to see you 😊 What's up?", "ai_emotion": "Neutral", "user_mood": null, "created_at": "2026-02-16T13:13:26.011348"}

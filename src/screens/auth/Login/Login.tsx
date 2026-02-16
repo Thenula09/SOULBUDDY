@@ -76,7 +76,7 @@ const Login: React.FC<AuthScreenProps> = ({ navigation }) => {
             const serverProfile = await profileService.getProfile(uid);
             if (!serverProfile || serverProfile.id === 0) {
               // navigate to Main and tell MainTabs to open the Profile tab
-              navigation.navigate('Main', { initialTab: 'Profile' as const } as any);
+              navigation.navigate('Main', { initialTab: 'Profile' });
             } else {
               navigation.navigate('Main');
             }

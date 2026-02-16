@@ -9,7 +9,7 @@ import Login from '../screens/auth/Login/Login';
 import Register from '../screens/auth/Register/Register';
 import ForgotPassword from '../screens/auth/ForgotPassword/ForgotPassword';
 import ResetPassword from '../screens/auth/ResetPassword/ResetPassword';
-import ChooseRecovery from '../screens/auth/ChooseRecovery/ChooseRecovery';
+
 import MobileVerification from '../screens/auth/MobileVerification/MobileVerification';
 import OTPEntry from '../screens/auth/OTPEntry/OTPEntry';
 import AdminLogin from '../screens/admin/AdminLogin/AdminLogin';
@@ -35,10 +35,16 @@ function AppNavigator() {
       const url = typeof event === 'string' ? event : event.url;
       if (!url) return;
       try {
-        const parsed = new URL(url);
-        // match links like soulbuddy://reset-password?access_token=... or any path containing reset-password/update-password
-        if (parsed.pathname.includes('reset-password') || parsed.pathname.includes('update-password')) {
-          const accessToken = parsed.searchParams.get('access_token') || parsed.searchParams.get('accessToken');
+        // handle reset-password/update-password links (check both query and hash for access_token)
+        // use regex/string parsing to avoid needing DOM URL types in RN TS
+        if (url.includes('reset-password') || url.includes('update-password')) {
+          let accessToken: string | null = null;
+          const qp = url.match('[?&](?:access_token|accessToken)=([^&]+)');
+          if (qp) accessToken = decodeURIComponent(qp[1]);
+          else {
+            const hashMatch = url.match('#(?:.*?)(?:access_token|accessToken)=([^&]+)');
+            if (hashMatch) accessToken = decodeURIComponent(hashMatch[1]);
+          }
           navigationRef.current?.navigate('ResetPassword', { accessToken });
         }
       } catch (e) {
@@ -63,9 +69,22 @@ function AppNavigator() {
         initialRouteName="SplashOnboarding"
         screenOptions={{
           headerShown: false,
-          cardStyleInterpolator: ({ current: { progress } }) => ({
+          gestureEnabled: true,
+          transitionSpec: {
+            open: { animation: 'timing', config: { duration: 360 } },
+            close: { animation: 'timing', config: { duration: 300 } },
+          },
+          cardStyleInterpolator: ({ current: { progress }, layouts }) => ({
             cardStyle: {
               opacity: progress,
+              transform: [
+                {
+                  translateY: progress.interpolate({ inputRange: [0, 1], outputRange: [10, 0] }),
+                },
+              ],
+            },
+            overlayStyle: {
+              opacity: progress.interpolate({ inputRange: [0, 1], outputRange: [0, 0.25] }),
             },
           }),
         }}
@@ -76,7 +95,6 @@ function AppNavigator() {
         <Stack.Screen name="Login" component={Login} />
         <Stack.Screen name="ForgotPassword" component={ForgotPassword} />
         <Stack.Screen name="ResetPassword" component={ResetPassword} />
-        <Stack.Screen name="ChooseRecovery" component={ChooseRecovery} />
         <Stack.Screen name="MobileVerification" component={MobileVerification} />
         <Stack.Screen name="OTPEntry" component={OTPEntry} />
         <Stack.Screen name="Register" component={Register} />

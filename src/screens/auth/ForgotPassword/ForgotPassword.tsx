@@ -16,6 +16,7 @@ const ForgotPassword: React.FC<AuthScreenProps> = ({ navigation }) => {
       return;
     }
 
+    console.log('[ForgotPassword] send reset email requested for:', email);
     try {
       // send reset email via Supabase
       const { error } = await supabase.auth.resetPasswordForEmail(email, {
@@ -23,14 +24,16 @@ const ForgotPassword: React.FC<AuthScreenProps> = ({ navigation }) => {
       });
 
       if (error) {
+        console.error('[ForgotPassword] resetPasswordForEmail returned error:', error);
         Alert.alert('Error', error.message);
         return;
       }
 
+      console.log('[ForgotPassword] reset email sent to:', email);
       Alert.alert('Email sent', `A password reset link was sent to ${email}. Please check your inbox.`);
-      navigation.navigate('ChooseRecovery');
+      navigation.navigate('Login');
     } catch (err) {
-      console.error('Reset email error', err);
+      console.error('[ForgotPassword] Reset email error', err);
       Alert.alert('Error', 'Failed to send reset email.');
     }
   };
@@ -79,8 +82,8 @@ const ForgotPassword: React.FC<AuthScreenProps> = ({ navigation }) => {
                 <Text style={forgotStyles.primaryBtnText}>Send Reset Link</Text>
               </TouchableOpacity>
 
-              <TouchableOpacity onPress={() => navigation.navigate('ChooseRecovery')}>
-                <Text style={forgotStyles.linkText}>Use mobile verification  instead</Text>
+              <TouchableOpacity onPress={() => navigation.navigate('MobileVerification')}>
+                <Text style={forgotStyles.linkText}>Use mobile verification instead</Text>
               </TouchableOpacity>
             </View>
 

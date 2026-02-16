@@ -1,8 +1,11 @@
-import React, { useEffect, useState, useCallback } from 'react';
-import { View, Text, StyleSheet, Image, ActivityIndicator, Alert, TextInput, TouchableOpacity, ScrollView } from 'react-native';
+import React, { useEffect, useState, useCallback, useRef } from 'react';
+import { View, Text, StyleSheet, Image, ActivityIndicator, Alert, TextInput, TouchableOpacity, ScrollView, Animated } from 'react-native';
+import LinearGradient from 'react-native-linear-gradient';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { launchImageLibrary } from 'react-native-image-picker';
 import { useIsFocused, useNavigation } from '@react-navigation/native';
+import type { StackNavigationProp } from '@react-navigation/stack';
+import type { RootStackParamList } from '../../../types/navigation';
 import { profileService } from '../../../services/api';
 import { API_ENDPOINTS, fetchWithTimeout, API_CONFIG } from '../../../config/api';
 import { supabase } from '../../../services/supabase';
@@ -38,8 +41,22 @@ const ProfileScreen: React.FC = () => {
   const [sleepLatency, setSleepLatency] = useState<number | undefined>(undefined);
 
   const isFocused = useIsFocused();
-  const navigation = useNavigation();
+  const navigation = useNavigation<StackNavigationProp<RootStackParamList>>();
   const logoutStore = useStore(state => state.logout);
+
+  // Animated values for entrance animations
+  const titleAnim = useRef(new Animated.Value(0)).current;
+  const avatarScale = useRef(new Animated.Value(0.95)).current;
+  // number of section cards we animate (match the number of sectionCard instances)
+  const sectionAnims = useRef(Array.from({ length: 10 }, () => new Animated.Value(0))).current;
+
+  useEffect(() => {
+    Animated.sequence([
+      Animated.timing(titleAnim, { toValue: 1, duration: 420, useNativeDriver: true }),
+      Animated.spring(avatarScale, { toValue: 1, friction: 8, useNativeDriver: true }),
+      Animated.stagger(80, sectionAnims.map(a => Animated.timing(a, { toValue: 1, duration: 360, useNativeDriver: true }))),
+    ]).start();
+  }, [titleAnim, avatarScale, sectionAnims]);
 
   const loadLocal = useCallback(async () => {
     const uid = await AsyncStorage.getItem('user_id');
@@ -235,9 +252,24 @@ const ProfileScreen: React.FC = () => {
 
   if (loading) return <View style={styles.center}><ActivityIndicator /></View>;
 
+  // derive animated styles
+  const titleAnimatedStyle = {
+    opacity: titleAnim,
+    transform: [{ translateY: titleAnim.interpolate({ inputRange: [0, 1], outputRange: [8, 0] }) }],
+  };
+
+  const avatarAnimatedStyle = { transform: [{ scale: avatarScale }] };
+
+  const sectionStyleFor = (i: number) => ({
+    opacity: sectionAnims[i],
+    transform: [{ translateY: sectionAnims[i].interpolate({ inputRange: [0, 1], outputRange: [10, 0] }) }],
+  });
+
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.contentContainer}>
-      <Text style={styles.title}>Profile</Text>
+      <Animated.View style={titleAnimatedStyle}>
+        <Text style={styles.title}>Profile</Text>
+      </Animated.View>
 
       {serverProfileMissing && (
         <View style={styles.missingBanner}>
@@ -245,150 +277,220 @@ const ProfileScreen: React.FC = () => {
         </View>
       )}
 
-      {/* Photo & Name Section */}
-      <View style={styles.sectionCard}>
-        <View style={styles.photoSection}>
-          <View style={styles.photoWrapper}>
-            {photoUri ? (
-              <Image source={{ uri: photoUri }} style={styles.avatar} />
-            ) : (
-              <View style={[styles.avatar, styles.avatarPlaceholder]}>
-                <Text style={styles.avatarText}>Add Photo</Text>
-              </View>
-            )}
-            <TouchableOpacity style={styles.editBadge} onPress={pickImage}>
-              <Text style={styles.editBadgeText}>✎</Text>
-            </TouchableOpacity>
-          </View>
-          <View style={styles.nameSection}>
-            <Text style={styles.fieldLabel}>Full Name</Text>
-            <Text style={styles.nameText}>{fullName || 'Please log in again'}</Text>
-          </View>
-        </View>
-      </View>
-
-      {/* Gender Section */}
-      <View style={styles.sectionCard}>
-        <Text style={styles.sectionTitle}>Gender</Text>
-        <View style={styles.rowWithGap}>
-          <TouchableOpacity onPress={() => setGender('male')} style={[styles.smallBtn, gender === 'male' && styles.smallBtnActive]}><Text style={gender === 'male' ? styles.smallBtnTextActive : styles.smallBtnText}>Male</Text></TouchableOpacity>
-          <TouchableOpacity onPress={() => setGender('female')} style={[styles.smallBtn, gender === 'female' && styles.smallBtnActive]}><Text style={gender === 'female' ? styles.smallBtnTextActive : styles.smallBtnText}>Female</Text></TouchableOpacity>
-          <TouchableOpacity onPress={() => setGender('other')} style={[styles.smallBtn, gender === 'other' && styles.smallBtnActive]}><Text style={gender === 'other' ? styles.smallBtnTextActive : styles.smallBtnText}>Other</Text></TouchableOpacity>
-        </View>
-      </View>
-
-      {/* Personal Info Section */}
-      <View style={styles.sectionCard}>
-        <Text style={styles.sectionTitle}>Personal Information</Text>
-        <Text style={styles.fieldLabel}>Pet Name</Text>
-        <TextInput style={styles.textInput} value={petName} onChangeText={setPetName} placeholder="Enter pet name" />
-        
-        <View style={styles.rowWithGap}>
-          <View style={styles.halfField}>
-            <Text style={styles.fieldLabel}>Age</Text>
-            <TextInput style={styles.textInput} value={age ? String(age) : ''} onChangeText={(t) => setAge(t ? Number(t) : undefined)} placeholder="25" keyboardType="number-pad" />
-          </View>
-          <View style={styles.halfField}>
-            <Text style={styles.fieldLabel}>Weight (kg)</Text>
-            <TextInput style={styles.textInput} value={weight ? String(weight) : ''} onChangeText={(t) => setWeight(t ? Number(t) : undefined)} placeholder="70" keyboardType="numeric" />
-          </View>
-        </View>
-      </View>
-
-      {/* Employment Section */}
-      <View style={styles.sectionCard}>
-        <Text style={styles.sectionTitle}>Employment</Text>
-        <Text style={styles.fieldLabel}>Job Title</Text>
-        <TextInput style={styles.textInput} value={jobTitle} onChangeText={setJobTitle} placeholder="Enter job title" />
-        
-        <Text style={styles.fieldLabel}>Top Company</Text>
-        <TextInput style={styles.textInput} value={topCompany} onChangeText={setTopCompany} placeholder="Enter company name" />
-      </View>
-
-      {/* Family Section */}
-      <View style={styles.sectionCard}>
-        <Text style={styles.sectionTitle}>Family</Text>
-        <Text style={styles.fieldLabel}>Family Members</Text>
-        <TextInput style={styles.textInput} value={String(familyMembers)} onChangeText={(t) => setFamilyMembers(Number(t) || 0)} placeholder="4" keyboardType="number-pad" />
-      </View>
-
-      {/* Location Section */}
-      <View style={styles.sectionCard}>
-        <Text style={styles.sectionTitle}>Location</Text>
-        <Text style={styles.fieldLabel}>Province</Text>
-        <TextInput style={styles.textInput} value={province} onChangeText={setProvince} placeholder="Enter province" />
-        
-        <Text style={styles.fieldLabel}>City</Text>
-        <TextInput style={styles.textInput} value={city} onChangeText={setCity} placeholder="Enter city" />
-        
-        <Text style={styles.fieldLabel}>Village</Text>
-        <TextInput style={styles.textInput} value={village} onChangeText={setVillage} placeholder="Enter village" />
-      </View>
-
-      {/* Lifestyle Section */}
-      <View style={styles.sectionCard}>
-        <Text style={styles.sectionTitle}>Lifestyle & Health</Text>
-        <View style={styles.rowWithGap}>
-          <View style={styles.halfField}>
-            <Text style={styles.fieldLabel}>Sleep Hours</Text>
-            <TextInput style={styles.textInput} value={sleepHours ? String(sleepHours) : ''} onChangeText={(t) => setSleepHours(t ? Number(t) : undefined)} placeholder="8" keyboardType="numeric" />
-          </View>
-          <View style={styles.halfField}>
-            <Text style={styles.fieldLabel}>Time to Fall Asleep (min)</Text>
-            <TextInput style={styles.textInput} value={sleepLatency ? String(sleepLatency) : ''} onChangeText={(t) => setSleepLatency(t ? Number(t) : undefined)} placeholder="15" keyboardType="number-pad" />
-          </View>
-        </View>
-        
-        <Text style={styles.fieldLabel}>Exercise Time</Text>
-        <TextInput style={styles.textInput} value={exerciseTime} onChangeText={setExerciseTime} placeholder="Morning / 18:00 / etc" />
-      </View>
-
-      {/* Hobbies Section */}
-      <View style={styles.sectionCard}>
-        <View style={styles.sectionHeader}>
-          <Text style={styles.sectionTitle}>Hobbies</Text>
-          <Text style={styles.counter}>{hobbies.length}/3</Text>
-        </View>
-        <View style={styles.wrapRow}>
-          {HOBBIES_PRESET.map(h => {
-            const active = hobbies.includes(h);
-            return (
-              <TouchableOpacity key={h} onPress={() => toggleHobby(h)} style={[styles.hobbyChip, active && styles.hobbyChipActive]}>
-                <Text style={active ? styles.chipTextActive : styles.chipText}>{h}</Text>
+      {/* Photo & Name Section (glass, tinted) */}
+      <Animated.View style={sectionStyleFor(0)}>
+        <LinearGradient
+          colors={[ 'rgba(0,122,255,0.06)', 'rgba(255,255,255,0.45)' ]}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={styles.sectionCard}
+        >
+          <View style={styles.photoSection}>
+            <View style={styles.photoWrapper}>
+              <Animated.View style={avatarAnimatedStyle}>
+                {photoUri ? (
+                  <Image source={{ uri: photoUri }} style={styles.avatar} />
+                ) : (
+                  <View style={[styles.avatar, styles.avatarPlaceholder]}>
+                    <Text style={styles.avatarText}>Add Photo</Text>
+                  </View>
+                )}
+              </Animated.View>
+              <TouchableOpacity style={styles.editBadge} onPress={pickImage}>
+                <Text style={styles.editBadgeText}>✎</Text>
               </TouchableOpacity>
-            );
-          })}
-        </View>
-        <View style={styles.inputRow}>
-          <TextInput placeholder="Add custom hobby" style={styles.input} value={newHobby} onChangeText={setNewHobby} />
-          <TouchableOpacity style={styles.addBtn} onPress={addHobby}><Text style={styles.addBtnText}>+</Text></TouchableOpacity>
-        </View>
-      </View>
+            </View>
+            <View style={styles.nameSection}>
+              <Text style={styles.fieldLabel}>Full Name</Text>
+              <Text style={styles.nameText}>{fullName || 'Please log in again'}</Text>
+            </View>
+          </View>
+        </LinearGradient>
+      </Animated.View>
 
-      {/* Health Conditions Section */}
-      <View style={styles.sectionCard}>
-        <View style={styles.sectionHeader}>
-          <Text style={styles.sectionTitle}>Health Conditions</Text>
-          <Text style={styles.counter}>{healthConditions.length}/15</Text>
-        </View>
-        <View style={styles.wrapRow}>
-          {HEALTH_PRESET.map(c => {
-            const act = healthConditions.includes(c);
-            return (
-              <TouchableOpacity key={c} onPress={() => toggleCondition(c)} style={[styles.condChip, act && styles.condChipActive]}>
-                <Text style={act ? styles.chipTextActive : styles.chipText}>{c}</Text>
-              </TouchableOpacity>
-            );
-          })}
-        </View>
-        <View style={styles.inputRow}>
-          <TextInput placeholder="Add custom condition" style={styles.input} value={newCondition} onChangeText={setNewCondition} />
-          <TouchableOpacity style={styles.addBtn} onPress={addCondition}><Text style={styles.addBtnText}>+</Text></TouchableOpacity>
-        </View>
-      </View>
+      {/* Gender Section (glass, tinted) */}
+      <Animated.View style={sectionStyleFor(1)}>
+        <LinearGradient
+          colors={[ 'rgba(0,122,255,0.06)', 'rgba(255,255,255,0.45)' ]}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={styles.sectionCard}
+        >
+          <Text style={styles.sectionTitle}><Text style={styles.sectionIcon}>👥</Text>Gender</Text>
+          <View style={styles.rowWithGap}>
+            <TouchableOpacity onPress={() => setGender('male')} style={[styles.smallBtn, gender === 'male' && styles.smallBtnActive]}><Text style={gender === 'male' ? styles.smallBtnTextActive : styles.smallBtnText}>Male</Text></TouchableOpacity>
+            <TouchableOpacity onPress={() => setGender('female')} style={[styles.smallBtn, gender === 'female' && styles.smallBtnActive]}><Text style={gender === 'female' ? styles.smallBtnTextActive : styles.smallBtnText}>Female</Text></TouchableOpacity>
+            <TouchableOpacity onPress={() => setGender('other')} style={[styles.smallBtn, gender === 'other' && styles.smallBtnActive]}><Text style={gender === 'other' ? styles.smallBtnTextActive : styles.smallBtnText}>Other</Text></TouchableOpacity>
+          </View>
+        </LinearGradient>
+      </Animated.View>
 
-      {/* Actions Section */}
-      <View style={styles.sectionCard}>
+      {/* Personal Info Section (glass, tinted) */}
+      <Animated.View style={sectionStyleFor(2)}>
+        <LinearGradient
+          colors={[ 'rgba(0,122,255,0.06)', 'rgba(255,255,255,0.45)' ]}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={styles.sectionCard}
+        >
+          <Text style={styles.sectionTitle}><Text style={styles.sectionIcon}>👤</Text>Personal Information</Text>
+          <Text style={styles.fieldLabel}>Pet Name</Text>
+          <TextInput style={styles.textInput} value={petName} onChangeText={setPetName} placeholder="Enter pet name" />
+          
+          <View style={styles.rowWithGap}>
+            <View style={styles.halfField}>
+              <Text style={styles.fieldLabel}>Age</Text>
+              <TextInput style={styles.textInput} value={age ? String(age) : ''} onChangeText={(t) => setAge(t ? Number(t) : undefined)} placeholder="25" keyboardType="number-pad" />
+            </View>
+            <View style={styles.halfField}>
+              <Text style={styles.fieldLabel}>Weight (kg)</Text>
+              <TextInput style={styles.textInput} value={weight ? String(weight) : ''} onChangeText={(t) => setWeight(t ? Number(t) : undefined)} placeholder="70" keyboardType="numeric" />
+            </View>
+          </View>
+        </LinearGradient>
+      </Animated.View>
+
+      {/* Employment Section (glass, tinted) */}
+      <Animated.View style={sectionStyleFor(3)}>
+        <LinearGradient
+          colors={[ 'rgba(0,122,255,0.06)', 'rgba(255,255,255,0.45)' ]}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={styles.sectionCard}
+        >
+          <Text style={styles.sectionTitle}><Text style={styles.sectionIcon}>🏢</Text>Employment</Text>
+          <Text style={styles.fieldLabel}>Job Title</Text>
+          <TextInput style={styles.textInput} value={jobTitle} onChangeText={setJobTitle} placeholder="Enter job title" />
+          
+          <Text style={styles.fieldLabel}>Top Company</Text>
+          <TextInput style={styles.textInput} value={topCompany} onChangeText={setTopCompany} placeholder="Enter company name" />
+        </LinearGradient>
+      </Animated.View>
+
+      {/* Family Section (glass, tinted) */}
+      <Animated.View style={sectionStyleFor(4)}>
+        <LinearGradient
+          colors={[ 'rgba(0,122,255,0.06)', 'rgba(255,255,255,0.45)' ]}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={styles.sectionCard}
+        >
+          <Text style={styles.sectionTitle}><Text style={styles.sectionIcon}>👪</Text>Family</Text>
+          <Text style={styles.fieldLabel}>Family Members</Text>
+          <TextInput style={styles.textInput} value={String(familyMembers)} onChangeText={(t) => setFamilyMembers(Number(t) || 0)} placeholder="4" keyboardType="number-pad" />
+        </LinearGradient>
+      </Animated.View>
+
+      {/* Location Section (glass, tinted) */}
+      <Animated.View style={sectionStyleFor(5)}>
+        <LinearGradient
+          colors={[ 'rgba(0,122,255,0.06)', 'rgba(255,255,255,0.45)' ]}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={styles.sectionCard}
+        >
+          <Text style={styles.sectionTitle}><Text style={styles.sectionIcon}>📍</Text>Location</Text>
+          <Text style={styles.fieldLabel}>Province</Text>
+          <TextInput style={styles.textInput} value={province} onChangeText={setProvince} placeholder="Enter province" />
+          
+          <Text style={styles.fieldLabel}>City</Text>
+          <TextInput style={styles.textInput} value={city} onChangeText={setCity} placeholder="Enter city" />
+          
+          <Text style={styles.fieldLabel}>Village</Text>
+          <TextInput style={styles.textInput} value={village} onChangeText={setVillage} placeholder="Enter village" />
+        </LinearGradient>
+      </Animated.View>
+
+      {/* Lifestyle Section (glass, tinted) */}
+      <Animated.View style={sectionStyleFor(6)}>
+        <LinearGradient
+          colors={[ 'rgba(0,122,255,0.06)', 'rgba(255,255,255,0.45)' ]}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={styles.sectionCard}
+        >
+          <Text style={styles.sectionTitle}><Text style={styles.sectionIcon}>🩺</Text>Lifestyle & Health</Text>
+          <View style={styles.rowWithGap}>
+            <View style={styles.halfField}>
+              <Text style={styles.fieldLabel}>Sleep Hours</Text>
+              <TextInput style={styles.textInput} value={sleepHours ? String(sleepHours) : ''} onChangeText={(t) => setSleepHours(t ? Number(t) : undefined)} placeholder="8" keyboardType="numeric" />
+            </View>
+            <View style={styles.halfField}>
+              <Text style={styles.fieldLabel}>Time to Fall Asleep (min)</Text>
+              <TextInput style={styles.textInput} value={sleepLatency ? String(sleepLatency) : ''} onChangeText={(t) => setSleepLatency(t ? Number(t) : undefined)} placeholder="15" keyboardType="number-pad" />
+            </View>
+          </View>
+          
+          <Text style={styles.fieldLabel}>Exercise Time</Text>
+          <TextInput style={styles.textInput} value={exerciseTime} onChangeText={setExerciseTime} placeholder="Morning / 18:00 / etc" />
+        </LinearGradient>
+      </Animated.View>
+
+      {/* Hobbies Section (glass, tinted) */}
+      <Animated.View style={sectionStyleFor(7)}>
+        <LinearGradient
+          colors={[ 'rgba(0,122,255,0.06)', 'rgba(255,255,255,0.45)' ]}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={styles.sectionCard}
+        >
+          <View style={styles.sectionHeader}>
+            <Text style={styles.sectionTitle}><Text style={styles.sectionIcon}>🎯</Text>Hobbies</Text>
+            <Text style={styles.counter}>{hobbies.length}/3</Text>
+          </View>
+          <View style={styles.wrapRow}>
+            {HOBBIES_PRESET.map(h => {
+              const active = hobbies.includes(h);
+              return (
+                <TouchableOpacity key={h} onPress={() => toggleHobby(h)} style={[styles.hobbyChip, active && styles.hobbyChipActive]}>
+                  <Text style={active ? styles.chipTextActive : styles.chipText}>{h}</Text>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+          <View style={styles.inputRow}>
+            <TextInput placeholder="Add custom hobby" style={styles.input} value={newHobby} onChangeText={setNewHobby} />
+            <TouchableOpacity style={styles.addBtn} onPress={addHobby}><Text style={styles.addBtnText}>+</Text></TouchableOpacity>
+          </View>
+        </LinearGradient>
+      </Animated.View>
+
+      {/* Health Conditions Section (glass, tinted) */}
+      <Animated.View style={sectionStyleFor(8)}>
+        <LinearGradient
+          colors={[ 'rgba(0,122,255,0.06)', 'rgba(255,255,255,0.45)' ]}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={styles.sectionCard}
+        >
+          <View style={styles.sectionHeader}>
+            <Text style={styles.sectionTitle}><Text style={styles.sectionIcon}>❤️</Text>Health Conditions</Text>
+            <Text style={styles.counter}>{healthConditions.length}/15</Text>
+          </View>
+          <View style={styles.wrapRow}>
+            {HEALTH_PRESET.map(c => {
+              const act = healthConditions.includes(c);
+              return (
+                <TouchableOpacity key={c} onPress={() => toggleCondition(c)} style={[styles.condChip, act && styles.condChipActive]}>
+                  <Text style={act ? styles.chipTextActive : styles.chipText}>{c}</Text>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+          <View style={styles.inputRow}>
+            <TextInput placeholder="Add custom condition" style={styles.input} value={newCondition} onChangeText={setNewCondition} />
+            <TouchableOpacity style={styles.addBtn} onPress={addCondition}><Text style={styles.addBtnText}>+</Text></TouchableOpacity>
+          </View>
+        </LinearGradient>
+      </Animated.View>
+
+      {/* Actions Section (glass, tinted) */}
+      <LinearGradient
+        colors={[ 'rgba(0,122,255,0.06)', 'rgba(255,255,255,0.45)' ]}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={styles.sectionCard}
+      >
         <Text style={styles.sectionTitle}>Profile Actions</Text>
         <TouchableOpacity style={[styles.actionBtn, styles.serverSaveBtn]} onPress={async () => {
             if (!userId) { Alert.alert('Not logged in', 'Please log in to save your profile to the server.'); return; }
@@ -445,19 +547,19 @@ const ProfileScreen: React.FC = () => {
                   if (uid) {
                     keysToRemove.push(`local_profile_${uid}`, `profile_photo_${uid}`);
                   }
-                  try { await AsyncStorage.multiRemove(keysToRemove); } catch (e) { /* ignore */ }
+                  try { await AsyncStorage.multiRemove(keysToRemove); } catch { /* ignore */ }
 
-                  try { logoutStore(); } catch (e) { /* ignore */ }
+                  try { logoutStore(); } catch { /* ignore */ }
 
                   // navigate to Login (reset stack)
-                  try { navigation.reset({ index: 0, routes: [{ name: 'Login' as any }] }); } catch (e) { navigation.navigate('Login' as any); }
+                  try { navigation.reset({ index: 0, routes: [{ name: 'Login' }] }); } catch { navigation.navigate('Login'); }
                 }}
             ]);
           }}
         >
           <Text style={styles.actionBtnText}>🔓 Log out</Text>
         </TouchableOpacity>
-      </View>
+      </LinearGradient>
     </ScrollView>
   );
 };
@@ -466,19 +568,24 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#f5f7fa' },
   contentContainer: { padding: 16, paddingBottom: 32 },
   center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-  title: { fontSize: 24, fontWeight: '700', marginBottom: 16, color: '#1a1a1a' },
+  title: { fontSize: 24, fontWeight: '700', marginBottom: 16, color: '#2011F9', textAlign: 'center' },
   
-  // Section Card
+  // Section Card (glass / frosted)
   sectionCard: {
-    backgroundColor: '#fff',
     borderRadius: 12,
     padding: 16,
     marginBottom: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.08,
-    shadowRadius: 4,
-    elevation: 3,
+    overflow: 'hidden',
+    backgroundColor: 'rgba(0, 13, 255, 0.28)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.12)',
+    shadowColor: '#ffffff',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.06,
+    shadowRadius: 18,
+    elevation: 6,
+    // subtle inner highlight to enhance glass effect
+    borderStyle: 'solid',
   },
   sectionTitle: { fontSize: 16, fontWeight: '600', color: '#1a1a1a', marginBottom: 12 },
   sectionHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 },

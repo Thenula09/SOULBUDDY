@@ -5,7 +5,7 @@ import HomeScreen from '../screens/home/Home/HomeScreen';
 import LifestyleScreen from '../screens/home/Lifestyle/LifestyleScreen';
 import ProfileScreen from '../screens/home/Profile/ProfileScreen';
 
-type Tab = 'Home' | 'Lifestyles' | 'Profile';
+type Tab = 'Home' | 'Lifestyle' | 'Profile';
 
 const MainTabs = () => {
   const [active, setActive] = useState<Tab>('Home');
@@ -13,11 +13,15 @@ const MainTabs = () => {
   const navigation: any = useNavigation();
   const route: any = useRoute();
 
+  React.useEffect(() => { console.log('MainTabs mounted - initial active:', active); }, []);
+
   useEffect(() => {
     const initialTab = route?.params?.initialTab as Tab | undefined;
-    if (initialTab && ['Home','Lifestyles','Profile'].includes(initialTab)) {
-      setActive(initialTab);
-      setLoadedScreens(prev => new Set([...prev, initialTab]));
+    if (initialTab && ['Home','Lifestyle','Profile','Lifestyles'].includes(initialTab as string)) {
+      // accept both 'Lifestyle' and legacy 'Lifestyles'
+      const tabKey = (initialTab === 'Lifestyles') ? 'Lifestyle' : initialTab;
+      setActive(tabKey as Tab);
+      setLoadedScreens(prev => new Set([...prev, tabKey as Tab]));
       // clear the param so it doesn't re-trigger
       try { navigation.setParams({ initialTab: undefined }); } catch {}
     }
@@ -25,6 +29,7 @@ const MainTabs = () => {
 
   // Load screen on first access (lazy mounting)
   const handleTabPress = (tab: Tab) => {
+    console.log('MainTabs.handleTabPress ->', tab, 'loadedScreens before:', Array.from(loadedScreens));
     setActive(tab);
     if (!loadedScreens.has(tab)) {
       setLoadedScreens(prev => new Set([...prev, tab]));
@@ -33,11 +38,14 @@ const MainTabs = () => {
 
   // Render current screen
   const renderActiveScreen = () => {
+    console.log('MainTabs.renderActiveScreen - active:', active, 'loaded:', Array.from(loadedScreens));
     switch (active) {
       case 'Home':
         return <HomeScreen />;
-      case 'Lifestyles':
-        return loadedScreens.has('Lifestyles') ? <LifestyleScreen /> : null;
+      case 'Lifestyle':
+        return loadedScreens.has('Lifestyle') ? <LifestyleScreen /> : (
+          <View style={{flex:1,justifyContent:'center',alignItems:'center'}}><Text style={{color:'#999'}}>Loading...</Text></View>
+        );
       case 'Profile':
         return loadedScreens.has('Profile') ? <ProfileScreen /> : null;
       default:
@@ -54,7 +62,7 @@ const MainTabs = () => {
       <View style={styles.tabBar}>
         <TabButton label="Home" icon="🏠" active={active === 'Home'} onPress={() => handleTabPress('Home')} />
         <TabButton label="Chat" icon="💬" active={false} onPress={() => navigation.navigate('Chat')} />
-        <TabButton label="Lifestyles" icon="🌟" active={active === 'Lifestyles'} onPress={() => handleTabPress('Lifestyles')} />
+        <TabButton label="Lifestyle" icon="🌟" active={active === 'Lifestyle'} onPress={() => handleTabPress('Lifestyle')} />
         <TabButton label="Profile" icon="👤" active={active === 'Profile'} onPress={() => handleTabPress('Profile')} />
       </View>
     </View>

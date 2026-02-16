@@ -6,11 +6,10 @@ export type RootStackParamList = {
   Login: undefined;
   ForgotPassword: undefined;
   ResetPassword: { accessToken?: string } | undefined;
-  ChooseRecovery: undefined;
   MobileVerification: undefined;
   OTPEntry: { phone?: string; code?: string } | undefined;
   Register: undefined;
-  Main: undefined;
+  Main: { initialTab?: string } | undefined;
   Chat: undefined;
   AdminLogin: undefined;
   AdminHome: undefined;
