@@ -536,9 +536,8 @@ const ChatScreen = () => {
     >
       {/* Header */}
       <View style={styles.headerRow}>
-        <TouchableOpacity onPress={handleRefresh} style={styles.headerRefreshButton}>
-          <Text style={styles.headerRefreshText}>🔄 Refresh</Text>
-        </TouchableOpacity>
+        {/* left spacer keeps the title perfectly centered */}
+        <View style={styles.headerSpacer} />
 
         <View style={styles.headerCenter}>
           <Text style={styles.headerTitle}>Chat with SoulBuddy</Text>
@@ -565,7 +564,10 @@ const ChatScreen = () => {
           )}
         </View>
 
-        <View style={styles.headerSpacer} />
+        {/* refresh button moved to top-right */}
+        <TouchableOpacity onPress={handleRefresh} style={styles.headerRefreshButton} accessibilityLabel="Refresh chat" testID="refresh-chat-btn">
+          <Text style={styles.headerRefreshText}>🔄 Refresh</Text>
+        </TouchableOpacity>
       </View>
 
       {/* Chat Messages List */}
@@ -626,7 +628,7 @@ const ChatScreen = () => {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#f5f7fb' },
   header: {
-    backgroundColor: '#007AFF',
+    backgroundColor: '#0400ff',
     paddingTop: 50,
     paddingBottom: 20,
     paddingHorizontal: 20,
@@ -668,7 +670,7 @@ const styles = StyleSheet.create({
     paddingVertical: 4,
     borderRadius: 12,
   },
-  moodText: { color: '#007AFF', fontWeight: '600', marginRight: 8 },
+  moodText: { color: '#0400ff', fontWeight: '600', marginRight: 8 },
   moodGreeting: { color: '#444', fontSize: 12, marginRight: 8, fontStyle: 'italic' },
   moodRow: { flexDirection: 'row', alignItems: 'center' },
   moodTime: { color: '#666', fontSize: 12 },
@@ -680,7 +682,7 @@ const styles = StyleSheet.create({
     marginHorizontal: 15,
     maxWidth: '80%',
   },
-  userBubble: { alignSelf: 'flex-end', backgroundColor: '#007AFF', borderBottomRightRadius: 2 },
+  userBubble: { alignSelf: 'flex-end', backgroundColor: '#0400ff', borderBottomRightRadius: 2 },
   botBubble: { alignSelf: 'flex-start', backgroundColor: '#fff', borderBottomLeftRadius: 2, elevation: 2 },
   messageText: { fontSize: 16, color: '#333' },
   userMessageText: { color: '#fff' },
@@ -730,7 +732,7 @@ const styles = StyleSheet.create({
   input: { flex: 1, fontSize: 16, maxHeight: 100 },
   sendButton: {
     marginLeft: 10,
-    backgroundColor: '#007AFF',
+    backgroundColor: '#0400ff',
     paddingVertical: 8,
     paddingHorizontal: 15,
     borderRadius: 20,

@@ -3,10 +3,10 @@ import { StyleSheet } from 'react-native';
 export const chatStyles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f5f5f5',
+    backgroundColor: '#5c8fef',
   },
   header: {
-    backgroundColor: '#007AFF',
+    backgroundColor: '#0400ff',
     paddingTop: 50,
     paddingBottom: 20,
     paddingHorizontal: 20,
@@ -27,7 +27,7 @@ export const chatStyles = StyleSheet.create({
   },
   userMessage: {
     alignSelf: 'flex-end',
-    backgroundColor: '#007AFF',
+    backgroundColor: '#312ef0',
     borderRadius: 20,
     padding: 10,
     marginBottom: 5,
@@ -64,7 +64,7 @@ export const chatStyles = StyleSheet.create({
     fontSize: 16,
   },
   sendButton: {
-    backgroundColor: '#2011F9',
+    backgroundColor: '#0400ff',
     borderRadius: 20,
     paddingHorizontal: 20,
     paddingVertical: 10,
