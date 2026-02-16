@@ -6,7 +6,7 @@ const { width } = Dimensions.get('window');
 
 const SplashOnboarding: React.FC<OnboardingScreenProps> = ({ navigation }) => {
   const fade = React.useRef(new Animated.Value(0)).current;
-  const dotAnims = [React.useRef(new Animated.Value(0)).current, React.useRef(new Animated.Value(0)).current, React.useRef(new Animated.Value(0)).current];
+  const dotAnims = React.useMemo(() => [new Animated.Value(0), new Animated.Value(0), new Animated.Value(0)], []);
 
   React.useEffect(() => {
     // Fade in title
@@ -44,7 +44,7 @@ const SplashOnboarding: React.FC<OnboardingScreenProps> = ({ navigation }) => {
     <View style={styles.container}>
       {/* subtle blurred-like backdrop using translucent layered gradients */}
       <Animated.View style={[styles.centerContainer, { opacity: fade }]}>
-        <Text style={styles.title}>SoulBuddy</Text>
+        <Text style={styles.title}>SOULBUDDY</Text>
         <Text style={styles.subtitle}>your empathetic companion</Text>
         <Text style={styles.fontCredit}>DynaPuff — Designed by Toshi Omagari & Jennifer Daniel</Text>
 
@@ -89,6 +89,7 @@ const styles = StyleSheet.create({
     fontFamily: 'DynaPuff',
     fontWeight: '800',
     letterSpacing: 2,
+    textTransform: 'uppercase',
     textAlign: 'center',
     textShadowColor: 'rgba(255, 255, 255, 0.08)',
     textShadowOffset: { width: 0, height: 6 },
