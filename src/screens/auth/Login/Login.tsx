@@ -157,6 +157,31 @@ const Login: React.FC<AuthScreenProps> = ({ navigation }) => {
             <TouchableOpacity style={loginStyles.primaryBtn} onPress={handleLogin}>
               <Text style={loginStyles.primaryBtnText}>Sign In</Text>
             </TouchableOpacity>
+
+            {/* OR separator + social buttons */}
+            <View style={loginStyles.orRow}>
+              <View style={loginStyles.line} />
+              <Text style={loginStyles.orText}>OR</Text>
+              <View style={loginStyles.line} />
+            </View>
+
+            <View style={loginStyles.socialRow}>
+              <TouchableOpacity
+                style={loginStyles.socialBtn}
+                onPress={() => Alert.alert('Info', 'Facebook login is not configured yet')}
+              >
+                <Text style={loginStyles.socialIcon}>f</Text>
+                <Text style={loginStyles.socialBtnText}>Facebook</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={loginStyles.socialBtn}
+                onPress={() => Alert.alert('Info', 'Google login is not configured yet')}
+              >
+                <Text style={loginStyles.socialIcon}>G</Text>
+                <Text style={loginStyles.socialBtnText}>Google</Text>
+              </TouchableOpacity>
+            </View>
           </View>
 
           {/* Footer */}

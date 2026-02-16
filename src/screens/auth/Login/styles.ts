@@ -182,4 +182,13 @@ export const loginStyles = StyleSheet.create({
     color: '#2011F9',
     textDecorationLine: 'underline',
   },
+
+  /* OR separator + social buttons */
+  orRow: { flexDirection: 'row', alignItems: 'center', marginTop: 18, marginBottom: 12 },
+  line: { flex: 1, height: 1, backgroundColor: 'rgba(0,0,0,0.08)' },
+  orText: { marginHorizontal: 12, color: '#8a8a8a', fontSize: 12, fontWeight: '600' },
+  socialRow: { flexDirection: 'row', justifyContent: 'space-between', gap: 12 },
+  socialBtn: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingVertical: 12, borderRadius: 999, backgroundColor: '#2011F9', marginHorizontal: 6 },
+  socialIcon: { color: '#ffffff', fontSize: 16, marginRight: 8, fontWeight: '700' },
+  socialBtnText: { color: '#ffffff', fontWeight: '600' },
 });
