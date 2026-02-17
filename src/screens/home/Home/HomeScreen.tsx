@@ -5,6 +5,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { API_ENDPOINTS, fetchWithTimeout } from '../../../config/api';
 import { HomeSkeleton } from '../../../components/ScreenSkeletons';
 import Rive from 'rive-react-native';
+import { useNavigation } from '@react-navigation/native';
 
 const HomeScreen = () => {
   const [name, setName] = useState<string | null>(null);
@@ -17,6 +18,7 @@ const HomeScreen = () => {
   const headerSlideAnim = useRef(new Animated.Value(-50)).current;
   const bounceAnim = useRef(new Animated.Value(0)).current;
   const warningFadeAnim = useRef(new Animated.Value(0)).current;
+  const navigation = useNavigation<any>();
 
   const panResponder = useRef(
     PanResponder.create({
@@ -58,6 +60,12 @@ const HomeScreen = () => {
 
   const [weather, setWeather] = React.useState<null | { temp?: number; max?: number; min?: number; condition?: string; city?: string }>(null);
   const [weatherLoading, setWeatherLoading] = React.useState(false);
+
+  // Today's events (from backend or local cache)
+  const [todaysEvents, setTodaysEvents] = React.useState<string[]>([]);
+  const [_eventsLoading, setEventsLoading] = React.useState(false);
+  const [showTodaysList, setShowTodaysList] = React.useState(false);
+  const STORAGE_KEY_EVENTS = 'calendar_events_v1';
 
   const load = useCallback(async () => {
     // Check cache first
@@ -104,6 +112,52 @@ const HomeScreen = () => {
     await AsyncStorage.setItem('cached_user_name', displayName || '');
     await AsyncStorage.setItem('cache_time', now.toString());
     setName(displayName);
+
+    // fetch today's events for home notification (server first, then local fallback)
+    (async function fetchTodays() {
+      try {
+        setEventsLoading(true);
+        const todayIso = new Date().toISOString().slice(0,10); // YYYY-MM-DD
+        const token = await AsyncStorage.getItem('access_token');
+
+        // try server (only if we have a logged-in uid from outer scope)
+        if (uid && token) {
+          try {
+            const res = await fetchWithTimeout(`${API_ENDPOINTS.EVENTS_BY_USER(Number(uid))}?date=${todayIso}`, {
+              headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }
+            }, 5000);
+            if (res.ok) {
+              const list = await res.json();
+              const titles = Array.isArray(list) ? list.map((r: any) => r.title) : [];
+              if (titles.length) {
+                setTodaysEvents(Array.from(new Set(titles)));
+                // persist locally for Calendar screen
+                const raw = await AsyncStorage.getItem(STORAGE_KEY_EVENTS);
+                const map = raw ? JSON.parse(raw) : {};
+                map[todayIso] = titles;
+                await AsyncStorage.setItem(STORAGE_KEY_EVENTS, JSON.stringify(map));
+                setEventsLoading(false);
+                return;
+              }
+            }
+          } catch {
+            // ignore server errors and fall back to cache
+          }
+        }
+
+        // fallback: read local cache
+        const raw = await AsyncStorage.getItem(STORAGE_KEY_EVENTS);
+        if (raw) {
+          const map = JSON.parse(raw);
+          const todays = map[todayIso] || [];
+          setTodaysEvents(todays);
+        }
+      } catch (e) {
+        console.warn('Failed to load today events for home', e);
+      } finally {
+        setEventsLoading(false);
+      }
+    })();
 
     // Use Colombo time for greetings
     const { getColomboHour, getGreetingForHour } = require('../../../utils/time');
@@ -224,7 +278,7 @@ const HomeScreen = () => {
 
   return (
     <LinearGradient
-      colors={['#2344da', '#6b75d1', '#ffffff']}
+      colors={['#2344da', '#ffffff', '#ffffff']}
       style={styles.container}
       start={{ x: 0, y: 0 }}
       end={{ x: 1, y: 1 }}
@@ -236,7 +290,7 @@ const HomeScreen = () => {
           {/* Weather card at top (design from provided SVG/CSS) */}
           <View style={styles.weatherWrapper}>
             <LinearGradient
-              colors={[ '#5936B4', '#362A84' ]}
+              colors={[ '#8094f7', '#362A84' ]}
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 0 }}
               style={styles.weatherCard}
@@ -294,7 +348,34 @@ const HomeScreen = () => {
               />
             </Animated.View>
           </View>
-          
+
+          <TouchableOpacity style={styles.calendarButton} onPress={() => navigation.navigate('Calendar')}>
+            <Text style={styles.calendarButtonText}>📅 Add event</Text>
+          </TouchableOpacity>
+
+          {/* Today's events notification */}
+          {todaysEvents && todaysEvents.length > 0 && (
+            <>
+              <TouchableOpacity style={styles.todayEventNotification} onPress={() => setShowTodaysList(s => !s)}>
+                <Text style={styles.todayEventText}>🔔 Today: {todaysEvents[0]}</Text>
+                <View style={styles.todayNotificationRight}>
+                  {todaysEvents.length > 1 && <Text style={styles.todayEventCount}>+{todaysEvents.length - 1}</Text>}
+                  <Text style={styles.todayToggleText}>{showTodaysList ? '▴' : '▾'}</Text>
+                </View>
+              </TouchableOpacity>
+
+              {showTodaysList && (
+                <View style={styles.todayListContainer}>
+                  {todaysEvents.map((t, i) => (
+                    <TouchableOpacity key={i} style={styles.todayListItem} onPress={() => navigation.navigate('Calendar', { initialDate: new Date().toISOString().slice(0,10) })}>
+                      <Text style={styles.todayListBullet}>•</Text>
+                      <Text style={styles.todayListText}>{t}</Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              )}
+            </>
+          )}
 
         </View>
       )}
@@ -323,9 +404,9 @@ const styles = StyleSheet.create({
   headerText: {
     fontSize: 32,
     fontWeight: '800',
-    color: '#1565C0',
-    marginBottom: 10,
-    marginTop: 30,
+    color: '#000000',
+    marginBottom: -10,
+    marginTop: 10,
     textAlign: 'center',
     letterSpacing: 1,
     textShadowColor: 'rgba(21, 101, 192, 0.3)',
@@ -401,6 +482,54 @@ const styles = StyleSheet.create({
   weatherGray: { color: 'rgba(235,235,245,0.60)' },
   weatherLocation: { color: '#fff', marginTop: 4 },
   weatherCondition: { color: '#fff', fontSize: 14, alignSelf: 'flex-end' },
+
+  calendarButton: {
+    marginTop: 18,
+    marginBottom: -62,
+    backgroundColor: '#0030c1',
+    paddingHorizontal: 18,
+    paddingVertical: 10,
+    borderRadius: 999,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.08,
+    shadowRadius: 10,
+    elevation: 6,
+  },
+  calendarButtonText: {
+    color: '#ffffff',
+    fontWeight: '700',
+    fontSize: 16,
+  },
+
+  todayEventNotification: {
+    marginTop: 12,
+    backgroundColor: '#fffaf0',
+    borderRadius: 12,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    width: '100%',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.03,
+    shadowRadius: 8,
+    elevation: 2,
+    borderWidth: 1,
+    borderColor: '#fff1e0',
+  },
+  todayEventText: { color: '#333', fontWeight: '600', flex: 1 },
+  todayEventCount: { backgroundColor: '#2011F9', color: '#fff', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 999, fontWeight: '700' },
+
+  /* expanded today list */
+  todayListContainer: { marginTop: 8, backgroundColor: '#ffffff', borderRadius: 10, padding: 8, width: '100%' },
+  todayListItem: { flexDirection: 'row', alignItems: 'center', paddingVertical: 8 },
+  todayListBullet: { marginRight: 10, color: '#2011F9' },
+  todayListText: { flex: 1, color: '#333' },
+  todayNotificationRight: { flexDirection: 'row', alignItems: 'center' },
+  todayToggleText: { marginLeft: 8, color: '#666' },
 
 
 });

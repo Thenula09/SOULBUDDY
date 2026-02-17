@@ -35,7 +35,7 @@ const LifestyleScreen: React.FC = () => {
   // screen & card entrance animations (trigger on tab focus)
   const isFocused = useIsFocused();
   const screenAnim = React.useRef(new Animated.Value(0)).current;
-  const sectionAnims = React.useRef(Array.from({ length: 4 }, () => new Animated.Value(0))).current;
+  const sectionAnims = React.useRef(Array.from({ length: 3 }, () => new Animated.Value(0))).current;
 
   React.useEffect(() => {
     if (isFocused) {
@@ -280,32 +280,7 @@ const LifestyleScreen: React.FC = () => {
 
 
 
-      <Animated.View style={sectionStyleFor(3)}>
-        <LinearGradient colors={[ 'rgba(0,122,255,0.06)', 'rgba(255,255,255,0.45)' ]} style={styles.sectionCard}>
-          <View style={styles.cardHeader}>
-            <View style={styles.cardHeaderLeft}>
-              <Text style={styles.sectionIcon}>📝</Text>
-              <Text style={styles.sectionTitle}>Recent lifestyle entries</Text>
-            </View>
-            <TouchableOpacity onPress={() => {}}>
-              <Text style={styles.cardAction}>Add</Text>
-            </TouchableOpacity>
-          </View>
-          {isUnauth ? (
-            <Text style={[styles.emptyText, styles.emptyTextError]}>Please log in to view persisted lifestyle entries.</Text>
-          ) : lifestyleEntries && lifestyleEntries.length > 0 ? (
-            lifestyleEntries.map((e: any, i: number) => (
-              <View key={i} style={[styles.entryRow, i < lifestyleEntries.length - 1 && styles.entryRowBorder]}>
-                <Text style={styles.entryTimestamp}>{new Date(e.ts || e.created_at || e.time).toLocaleString()}</Text>
-                <Text style={styles.entryTitle}>{e.sleep_hours ? `Sleep: ${e.sleep_hours} hrs` : ''}{e.exercise_minutes ? ` • Exercise: ${e.exercise_minutes} min` : ''}{e.water_glasses ? ` • Water: ${e.water_glasses}` : ''}</Text>
-                {e.notes ? <Text style={styles.entryNotes}>{e.notes}</Text> : null}
-              </View>
-            ))
-          ) : (
-            <Text style={styles.emptyText}>No lifestyle entries yet.</Text>
-          )}
-        </LinearGradient>
-      </Animated.View>
+
     </Animated.View>
     </ScrollView>
   );

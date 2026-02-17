@@ -3,6 +3,7 @@ export const API_CONFIG = {
   USER_SERVICE: 'http://10.0.2.2:8004',
   CHAT_SERVICE: 'http://10.0.2.2:8003',
   MOOD_SERVICE: 'http://10.0.2.2:8003',
+  EVENT_SERVICE: 'http://10.0.2.2:8006',
   
   // Timeouts in milliseconds
   TIMEOUT: {
@@ -64,6 +65,10 @@ export const API_ENDPOINTS = {
   ANALYZE_EMOTION: `${API_CONFIG.CHAT_SERVICE}/api/v1/analyze-emotion`,
   ANALYZE_PHOTO: `${API_CONFIG.CHAT_SERVICE}/analyze-photo-emotion`,
   SAVE_MOOD: `${API_CONFIG.CHAT_SERVICE}/api/v1/save-mood`,
+
+  // Event Service
+  EVENTS: `${API_CONFIG.EVENT_SERVICE}/api/events`,
+  EVENTS_BY_USER: (userId: number) => `${API_CONFIG.EVENT_SERVICE}/api/events/${userId}`,
   
   // Admin
   ADMIN_USERS: `${API_CONFIG.USER_SERVICE}/admin/online-users`,

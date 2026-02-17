@@ -13,11 +13,14 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { AuthScreenProps } from '../../../types/navigation';
 import { loginStyles } from './styles';
 import LoginBackground from './LoginBackground';
+import EyeIcon from '../../../components/EyeIcon';
 import { profileService } from '../../../services/api';
+import { supabase } from '../../../services/supabase';
 
 const Login: React.FC<AuthScreenProps> = ({ navigation }) => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
 
   const handleLogin = async () => {
     if (!email || !password) {
@@ -160,8 +163,11 @@ const Login: React.FC<AuthScreenProps> = ({ navigation }) => {
                   placeholderTextColor="#c4c4c4"
                   value={password}
                   onChangeText={setPassword}
-                  secureTextEntry
+                  secureTextEntry={!showPassword}
                 />
+                <TouchableOpacity onPress={() => setShowPassword(s => !s)} style={loginStyles.eyeButton} accessibilityLabel={showPassword ? 'Hide password' : 'Show password'}>
+                  <EyeIcon size={18} color="#222" closed={!showPassword} />
+                </TouchableOpacity>
               </View>
             </View>
 
@@ -183,7 +189,25 @@ const Login: React.FC<AuthScreenProps> = ({ navigation }) => {
             <View style={loginStyles.socialRow}>
               <TouchableOpacity
                 style={loginStyles.socialIconBtn}
-                onPress={() => openExternal('https://www.facebook.com')}
+                onPress={async () => {
+                  try {
+                    // Supabase OAuth (Facebook)
+                    const { data, error } = await supabase.auth.signInWithOAuth({
+                      provider: 'facebook',
+                      options: { redirectTo: 'soulbuddy://home' },
+                    });
+                    if (error) {
+                      console.log('Facebook Login Error:', error.message);
+                      return;
+                    }
+                    // In React Native we must open the returned auth URL in the system browser
+                    if (data?.url) {
+                      await Linking.openURL(data.url);
+                    }
+                  } catch (err) {
+                    console.warn('Facebook login failed', err);
+                  }
+                }}
                 accessibilityLabel="Sign in with Facebook"
               >
                 <Image
@@ -195,7 +219,23 @@ const Login: React.FC<AuthScreenProps> = ({ navigation }) => {
 
               <TouchableOpacity
                 style={loginStyles.socialIconBtn}
-                onPress={() => openExternal('https://accounts.google.com')}
+                onPress={async () => {
+                  try {
+                    const { data, error } = await supabase.auth.signInWithOAuth({
+                      provider: 'google',
+                      options: { redirectTo: 'soulbuddy://home' },
+                    });
+                    if (error) {
+                      console.log('Google Login Error:', error.message);
+                      return;
+                    }
+                    if (data?.url) {
+                      await Linking.openURL(data.url);
+                    }
+                  } catch (err) {
+                    console.warn('Google login failed', err);
+                  }
+                }}
                 accessibilityLabel="Sign in with Google"
               >
                 <Image

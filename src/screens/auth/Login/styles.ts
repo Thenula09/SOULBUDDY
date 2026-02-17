@@ -118,6 +118,15 @@ export const loginStyles = StyleSheet.create({
     color: '#380000',
     padding: 0,
   },
+  eyeButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginLeft: 8,
+    backgroundColor: 'transparent',
+  },
   cardTitle: {
     fontSize: 20,
     fontWeight: '700',

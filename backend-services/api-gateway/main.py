@@ -34,6 +34,7 @@ app.add_middleware(
 USER_SERVICE_URL = os.getenv("USER_SERVICE_URL", "http://localhost:8004")
 CHAT_SERVICE_URL = os.getenv("CHAT_SERVICE_URL", "http://localhost:8002")
 LIFESTYLE_SERVICE_URL = os.getenv("LIFESTYLE_SERVICE_URL", "http://localhost:8005")
+EVENT_SERVICE_URL = os.getenv("EVENT_SERVICE_URL", "http://localhost:8006")
 
 JWT_SECRET = os.getenv("JWT_SECRET_KEY", "your-secret-key-change-in-production")
 
@@ -142,7 +143,8 @@ async def health_check():
         for name, url in [
             ("user_service", USER_SERVICE_URL),
             ("chat_service", CHAT_SERVICE_URL),
-            ("lifestyle_service", LIFESTYLE_SERVICE_URL)
+            ("lifestyle_service", LIFESTYLE_SERVICE_URL),
+            ("event_service", EVENT_SERVICE_URL)
         ]:
             try:
                 response = await client.get(f"{url}/health", timeout=5.0)
@@ -232,6 +234,42 @@ async def get_lifestyle(user_id: int, request: Request):
 async def get_lifestyle_moods_today(user_id: int, request: Request):
     return await forward_request(
         f"{LIFESTYLE_SERVICE_URL}/api/lifestyle/moods/today/{user_id}",
+        "GET",
+        dict(request.headers)
+    )
+
+# Event Service Routes
+@app.post("/api/events")
+async def create_event(request: Request):
+    # Require authentication middleware to have populated request.state.user_id
+    if not getattr(request.state, 'user_id', None):
+        return JSONResponse(status_code=status.HTTP_401_UNAUTHORIZED, content={"detail": "Unauthorized"})
+
+    body = await request.json()
+    # enforce server-side owner: overwrite any provided user_id with authenticated one
+    body['user_id'] = request.state.user_id
+
+    return await forward_request(
+        f"{EVENT_SERVICE_URL}/api/events",
+        "POST",
+        dict(request.headers),
+        body
+    )
+
+@app.get("/api/events/{user_id}")
+async def get_events(user_id: int, request: Request):
+    # ensure caller is requesting their own events
+    if not getattr(request.state, 'user_id', None):
+        return JSONResponse(status_code=status.HTTP_401_UNAUTHORIZED, content={"detail": "Unauthorized"})
+    if int(user_id) != int(request.state.user_id):
+        return JSONResponse(status_code=status.HTTP_403_FORBIDDEN, content={"detail": "Forbidden"})
+
+    qs = str(request.query_params)
+    url = f"{EVENT_SERVICE_URL}/api/events/{user_id}"
+    if qs:
+        url = url + "?" + qs
+    return await forward_request(
+        url,
         "GET",
         dict(request.headers)
     )

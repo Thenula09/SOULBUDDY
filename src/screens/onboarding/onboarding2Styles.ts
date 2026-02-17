@@ -17,11 +17,11 @@ export const onboarding2Styles = StyleSheet.create({
   animationContainer: {
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 20,
+    marginBottom: -30,
   },
   animation: {
-    width: 200,
-    height: 200,
+    width: 350,
+    height: 350,
   },
   title: {
     fontSize: 24,
@@ -40,8 +40,9 @@ export const onboarding2Styles = StyleSheet.create({
   },
   buttonContainer: {
     width: '100%',
-    paddingHorizontal: 10,
-    paddingBottom: 10,
+    paddingHorizontal: 40,
+    marginTop: 40,
+    paddingBottom: 60,
   },
   skipButton: {
     backgroundColor: 'transparent',

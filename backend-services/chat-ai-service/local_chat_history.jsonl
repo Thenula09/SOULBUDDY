@@ -53,3 +53,9 @@
 {"user_id": 10, "user_message": "I happy day", "ai_reply": "Yay that's awesome! What made your day so happy? 😊", "ai_emotion": "Happy", "user_mood": null, "created_at": "2026-02-16T13:19:37.086161"}
 {"user_id": 10, "user_message": "hy", "ai_reply": "Hey! How's your day going so far? 😊", "ai_emotion": "Neutral", "user_mood": null, "created_at": "2026-02-16T13:38:23.481716"}
 {"user_id": 10, "user_message": "hy", "ai_reply": "Hy machan! 😊 How's life been treating you today?", "ai_emotion": "Neutral", "user_mood": null, "created_at": "2026-02-16T13:42:16.115190"}
+{"user_id": 10, "user_message": "hy", "ai_reply": "Hey! How's it going? 😊", "ai_emotion": "Neutral", "user_mood": null, "created_at": "2026-02-17T03:34:27.776646"}
+{"user_id": 1, "user_message": "I just shared my photo. How do I look?", "ai_reply": "You look amazing! 😊 What's the occasion, buddy? Were you trying something new with your style?", "ai_emotion": "Happy", "user_mood": null, "created_at": "2026-02-17T03:36:03.840987"}
+{"user_id": 1, "user_message": "I just shared my photo. How do I look?", "ai_reply": "You look amazing, buddy! 😊 Which one is your favorite angle? 🤔", "ai_emotion": "Happy", "user_mood": null, "created_at": "2026-02-17T03:36:29.872765"}
+{"user_id": 10, "user_message": "Hy how are you", "ai_reply": "I'm good, macho! Just chillin' here 😊. You?", "ai_emotion": "Neutral", "user_mood": null, "created_at": "2026-02-17T11:31:18.105619"}
+{"user_id": 1, "user_message": "I just shared my photo. How do I look?", "ai_reply": "You look amazing buddy! 😊 What's the occasion for sharing your photo?", "ai_emotion": "Happy", "user_mood": null, "created_at": "2026-02-17T11:31:42.769396"}
+{"user_id": 10, "user_message": "Hy today sad day", "ai_reply": "I noticed earlier you were feeling a bit down, is everything okay now? 😔", "ai_emotion": "Sad", "user_mood": null, "created_at": "2026-02-17T12:38:14.356941"}
