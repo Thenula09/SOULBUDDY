@@ -1,9 +1,14 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-ROOT="/Users/thenulahansaja/Documents/SOULBUDDY"
+# Resolve project root (relative to this script) so script works from any clone location
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 VENV_PY="$ROOT/venv/bin/python"
 DEEPFACE_PY="$ROOT/deepface-env/bin/python"
+# If deepface env isn't present, fall back to the main venv python
+if [ ! -x "$DEEPFACE_PY" ]; then
+  DEEPFACE_PY="$VENV_PY"
+fi
 LOG_DIR="$ROOT/logs"
 mkdir -p "$LOG_DIR"
 
