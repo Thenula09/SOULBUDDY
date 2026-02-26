@@ -1,6 +1,7 @@
 # 📚 SoulBuddy Monorepo Guide
 Complete guide to the SoulBuddy mental health platform's architecture and repository organization.
-![Uploading 544690e7-538f-4371-af52-b7c1fff2b220.png…]()
+![Uploading ChatGPT Image Feb 26, 2026 at 09_18_50 AM.png…]()
+
 
 ## 🎯 Overview
 SoulBuddy is an AI-powered mental health and mood tracking platform split into multiple components for better scalability, maintainability, and deployment flexibility. The system combines AI-powered chat assistance with detailed mood analytics to help users better understand and improve their mental well-being.
