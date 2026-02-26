@@ -1,6 +1,8 @@
 # 📚 SoulBuddy Monorepo Guide
 Complete guide to the SoulBuddy mental health platform's architecture and repository organization.
-![Uploading ChatGPT Image Feb 26, 2026 at 09_18_50 AM.png…]()
+
+<img width="1536" height="1024" alt="ChatGPT Image Feb 26, 2026 at 09_18_50 AM" src="https://github.com/user-attachments/assets/227e3f1f-031a-4d28-85a8-87c7d393d496" />
+<img width="1536" height="1024" alt="ChatGPT Image Feb 26, 2026 at 09_18_50 AM" src="https://github.com/user-attachments/assets/66ce7d06-9b4f-4285-a45d-3d9539b60290" />
 
 
 ## 🎯 Overview
